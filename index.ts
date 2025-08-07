@@ -8,28 +8,29 @@ import { join } from 'path';
 
 const projectHtml = readFileSync(join(__dirname, 'project.html'), 'utf-8');
 
+const addCors = (response: Response) => {
+  response.headers.set("Access-Control-Allow-Origin", "*");
+  response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+  return response;
+};
+
 const server = serve({
   fetch: async (req) => {
     const url = new URL(req.url);
 
     // Handle CORS preflight requests
     if (req.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
+      return addCors(new Response(null, { status: 204 }));
     }
 
     // Serve project.html for root path
     if (url.pathname === "/") {
-      return new Response(projectHtml, {
+      return addCors(new Response(projectHtml, {
         headers: {
           "Content-Type": "text/html",
         },
-      });
+      }));
     }
 
     let response: Response;
@@ -45,9 +46,7 @@ const server = serve({
       response = new Response("Not Found", { status: 404 });
     }
 
-    // Add CORS headers to all responses
-    response.headers.set("Access-Control-Allow-Origin", "*");
-    return response;
+    return addCors(response);
   },
   port: 5001,
 });
