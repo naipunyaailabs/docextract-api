@@ -1,0 +1,31 @@
+{
+  "name": "docapture-api",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@langchain/openai": "^0.5.13",
+    "@langchain/qdrant": "^0.1.2",
+    "@qdrant/js-client-rest": "^1.14.1",
+    "@types/pdf-parse": "^1.1.5",
+    "axios": "^1.10.0",
+    "file-type": "^21.0.0",
+    "groq-sdk": "^0.5.0",
+    "langchain": "^0.3.28",
+    "openai": "^5.5.1",
+    "pdf-lib": "^1.17.1",
+    "pdf-poppler": "^0.2.1",
+    "pdf-text-extract": "^1.5.0",
+    "pdf2pic": "^3.2.0",
+    "pdf2table": "^0.0.2",
+    "pdfjs-dist": "^5.3.31",
+    "sharp": "^0.34.2",
+    "unpdf": "^1.0.6"
+  }
+}

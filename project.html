@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Summarizer AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
+  <!-- jsPDF for PDF download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- html2canvas for rendering HTML to canvas (for PDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body class="bg-gray-950 font-sans leading-relaxed tracking-wide min-h-screen">
+
+  <div class="max-w-6xl mx-auto p-8 mt-12 bg-gray-900 border border-gray-800 shadow-2xl rounded-2xl">
+    <div class="flex justify-center ">
+      <h1 class="text-5xl mb-4 font-extrabold text-white text-center drop-shadow-lg tracking-tight select-none" style="text-shadow: 0 4px 24px #2563eb, 0 1px 0 #fff;">
+        DocExtract <span class="text-blue-500">AI</span>
+      </h1>
+    </div>
+    <p class="text-gray-400 mb-8">Upload a document (PDF, TXT, Markdown, or HTML). Optionally add a prompt to guide the summarization.</p>
+
+    <div class="grid grid-cols-2 gap-8">
+      <!-- Left Column - Input Form -->
+      <div>
+        <form id="uploadForm" class="space-y-6">
+          <div>
+            <label class="block text-gray-300 font-medium mb-3 flex items-center gap-2">
+              <i class='bx bx-upload text-xl'></i>
+              Upload Document
+            </label>
+            <input type="file" name="document" id="document" accept=".pdf,.txt,.md,.html"
+                   class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-blue-500 text-gray-100 transition-colors" required />
+          </div>
+
+          <div>
+            <label for="prompt" class="block text-gray-300 font-medium mb-3 flex items-center gap-2">
+              <i class='bx bx-edit text-xl'></i>
+              Prompt (Optional)
+            </label>
+            <input type="text" name="prompt" id="prompt" placeholder="E.g., Summarize in bullet points"
+                   class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-blue-500 text-gray-100 transition-colors" />
+          </div>
+
+          <button type="submit"
+                  class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-200">
+            <i class='bx bx-search-alt-2'></i>
+            Summarize Document
+          </button>
+        </form>
+      </div>
+
+      <!-- Right Column - Summary -->
+      <div id="result" class="border-l border-gray-800 pl-8">
+        <h2 class="text-2xl font-semibold text-gray-100 mb-6 flex items-center gap-2">
+          <i class='bx bx-list-check text-2xl'></i>
+          Summary
+        </h2>
+        <div class="flex items-center gap-4 mb-4">
+          <button id="downloadPdfBtn" class="hidden flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all duration-200">
+            <i class='bx bx-download'></i>
+            Download as PDF
+          </button>
+        </div>
+        <div id="summaryContent" class="prose max-w-none text-gray-300 bg-gray-900 p-0">
+          <!-- The summary will be injected here. No extra background or padding. -->
+          <div class="text-gray-400">
+            <p>Your summary will appear here after processing.</p>
+          </div>
+        </div>
+        <div id="loader" class="hidden mt-4">
+          <div class="flex items-center gap-2 text-blue-500">
+            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
+            <span>Processing document...</span>
+          </div>
+        </div>
+        <div id="logs" class="mt-4 text-sm text-gray-400 space-y-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const result = document.getElementById('result');
+    const summaryContent = document.getElementById('summaryContent');
+    const loader = document.getElementById('loader');
+    const logs = document.getElementById('logs');
+    const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+
+    const addLog = (message) => {
+      const timestamp = new Date().toLocaleTimeString();
+      logs.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+    };
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Clear previous results and logs
+      summaryContent.innerHTML = `
+        <div class="text-gray-400">
+          <p>Your summary will appear here after processing.</p>
+        </div>`;
+      logs.innerHTML = '';
+      loader.classList.remove('hidden');
+      downloadPdfBtn.classList.add('hidden');
+
+      const formData = new FormData();
+      const fileInput = document.getElementById('document');
+      const promptInput = document.getElementById('prompt');
+
+      formData.append('document', fileInput.files[0]);
+      if (promptInput.value) {
+        formData.append('prompt', promptInput.value);
+      }
+
+      try {
+        addLog('Starting document upload...');
+        const response = await fetch('http://localhost:5001/summarize', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) throw new Error('Server error');
+
+        addLog('Document uploaded successfully. Processing...');
+        const resultHtml = await response.text();
+        addLog('Summary generated successfully.');
+        // Remove any outer <div class="min-h-screen ..."> wrappers from the summary
+        // and inject only the summary content, so it blends with the dark background.
+        let cleanHtml = resultHtml;
+        // Try to extract only the inner summary if the response is wrapped
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = resultHtml;
+        // If the summary is wrapped in a single .min-h-screen, extract the inner part
+        const minHScreenDiv = tempDiv.querySelector('.min-h-screen');
+        if (minHScreenDiv) {
+          cleanHtml = minHScreenDiv.innerHTML;
+        }
+        summaryContent.innerHTML = cleanHtml;
+
+        // Show the download button now that summary is available
+        downloadPdfBtn.classList.remove('hidden');
+      } catch (error) {
+        addLog(`Error: ${error.message}`);
+        summaryContent.innerHTML = `
+          <div class="text-red-500 flex items-center gap-2"><i class='bx bx-error-circle'></i>Failed to summarize: ${error.message}</div>`;
+        downloadPdfBtn.classList.add('hidden');
+      } finally {
+        loader.classList.add('hidden');
+      }
+    });
+
+    // PDF Download Feature
+    downloadPdfBtn.addEventListener('click', async () => {
+      addLog('Preparing PDF download...');
+      // Use html2canvas to render the summaryContent to a canvas, then add to jsPDF
+      const summaryElement = summaryContent;
+      // Optionally, you can clone and style for white background for PDF
+      const clone = summaryElement.cloneNode(true);
+      clone.style.background = "#fff";
+      clone.style.color = "#222";
+      clone.style.padding = "24px";
+      clone.style.borderRadius = "12px";
+      clone.style.maxWidth = "700px";
+      clone.style.margin = "0 auto";
+      // Place clone in a hidden container for rendering
+      let hiddenDiv = document.getElementById('pdf-hidden-div');
+      if (!hiddenDiv) {
+        hiddenDiv = document.createElement('div');
+        hiddenDiv.id = 'pdf-hidden-div';
+        hiddenDiv.style.position = 'fixed';
+        hiddenDiv.style.left = '-9999px';
+        hiddenDiv.style.top = '0';
+        hiddenDiv.style.width = '800px';
+        hiddenDiv.style.zIndex = '-1';
+        document.body.appendChild(hiddenDiv);
+      }
+      hiddenDiv.innerHTML = '';
+      hiddenDiv.appendChild(clone);
+
+      try {
+        // Wait for fonts/images to load
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const canvas = await html2canvas(clone, {
+          backgroundColor: "#fff",
+          scale: 2,
+          useCORS: true
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new window.jspdf.jsPDF({
+          orientation: canvas.width > canvas.height ? 'l' : 'p',
+          unit: 'px',
+          format: [canvas.width, canvas.height]
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('summary.pdf');
+        addLog('PDF downloaded.');
+      } catch (err) {
+        addLog('Failed to generate PDF: ' + err.message);
+        alert('Failed to generate PDF: ' + err.message);
+      }
+    });
+  </script>
+
+</body>
+</html>
