@@ -1,19 +1,36 @@
-import { extractDoc } from "../services/feildExtractor";
+import { extractDoc } from "../services/fieldExtractor";
 import { storeTemplate } from "../services/templateStore";
-
+import { createErrorResponse, createSuccessResponse } from "../utils/errorHandler";
+import type { UploadResponse } from "../types";
 
 export async function uploadHandler(req: Request): Promise<Response> {
-  const formData = await req.formData();
-  const file = formData.get("document");
-  if (!file || !(file instanceof File)) {
-    throw new Error("No document file provided");
+  try {
+    const formData = await req.formData();
+    const file = formData.get("document");
+    if (!file || !(file instanceof File)) {
+      return createErrorResponse("No document file provided", 400);
+    }
+    
+    const fieldsJson = formData.get("fields")?.toString() || "[]";
+    let fields: string[] = [];
+    try {
+      fields = JSON.parse(fieldsJson);
+      // Validate that fields is an array of strings
+      if (!Array.isArray(fields) || !fields.every(f => typeof f === 'string')) {
+        return createErrorResponse("Fields must be an array of strings", 400);
+      }
+    } catch (e) {
+      return createErrorResponse("Invalid fields format", 400);
+    }
+
+    const buffer = await file.arrayBuffer();
+    const text = await extractDoc(Buffer.from(buffer), file.name, file.type);
+
+    await storeTemplate(text, fields);
+    const response: UploadResponse = { message: "Template stored successfully" };
+    return createSuccessResponse(response);
+  } catch (error) {
+    console.error("[Upload Handler Error]:", error);
+    return createErrorResponse("Failed to store template", 500, { error: (error as Error).message });
   }
-  const fieldsJson = formData.get("fields")?.toString() || "[]";
-  const fields = JSON.parse(fieldsJson);
-
-  const buffer = await file.arrayBuffer();
-  const text = await extractDoc(Buffer.from(buffer),file.name,file.type);
-
-  await storeTemplate(text, fields);
-  return new Response("Template stored successfully");
 }

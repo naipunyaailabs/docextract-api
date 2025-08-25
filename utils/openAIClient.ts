@@ -1,8 +1,9 @@
 // utils/openaiClient.ts
 import OpenAI from "openai";
+import { OPENAI_API_KEY } from "../utils/config";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: OPENAI_API_KEY
 });
 
 export async function getOpenAIEmbedding(text: string): Promise<number[]> {

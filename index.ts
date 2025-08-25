@@ -5,13 +5,24 @@ import { summarizeHandler } from "./routes/summarize";
 import resetRoute from "./routes/reset";
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { authenticateRequest } from "./utils/auth";
+import { PORT, logConfig, validateConfig } from "./utils/config";
+
+// Validate configuration on startup
+try {
+  validateConfig();
+  logConfig();
+} catch (error) {
+  console.error("Configuration error:", (error as Error).message);
+  process.exit(1);
+}
 
 const projectHtml = readFileSync(join(__dirname, 'project.html'), 'utf-8');
 
 const addCors = (response: Response) => {
   response.headers.set("Access-Control-Allow-Origin", "*");
   response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+  response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   return response;
 };
 
@@ -24,13 +35,22 @@ const server = serve({
       return addCors(new Response(null, { status: 204 }));
     }
 
-    // Serve project.html for root path
+    // Serve project.html for root path (no authentication required)
     if (url.pathname === "/") {
       return addCors(new Response(projectHtml, {
         headers: {
           "Content-Type": "text/html",
         },
       }));
+    }
+
+    // Apply authentication to all API routes except the ones we want to keep public
+    const protectedRoutes = ["/upload", "/extract", "/summarize", "/reset"];
+    if (protectedRoutes.includes(url.pathname) && req.method === "POST") {
+      const authResponse = authenticateRequest(req);
+      if (authResponse) {
+        return addCors(authResponse);
+      }
     }
 
     let response: Response;
@@ -48,7 +68,8 @@ const server = serve({
 
     return addCors(response);
   },
-  port: 5001,
+  port: PORT,
 });
 
 console.log(`Server running at http://localhost:${server.port}`);
+console.log(`API Key (for development): ${process.env.API_KEY || 'Not set'}`);
