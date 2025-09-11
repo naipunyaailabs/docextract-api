@@ -7,6 +7,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { authenticateRequest } from "./utils/auth";
 import { PORT, logConfig, validateConfig } from "./utils/config";
+import { summarizeRfpHandler } from "./routes/summarizeRfp";
 
 // Validate configuration on startup
 try {
@@ -62,9 +63,12 @@ const server = serve({
       response = await summarizeHandler(req);
     } else if (url.pathname === "/reset" && req.method === "POST") {
       response = await resetRoute(req);
+    } else if (req.method === "POST" && url.pathname === "/summarize-rfp") {
+      response = await summarizeRfpHandler(req);
     } else {
       response = new Response("Not Found", { status: 404 });
     }
+
 
     return addCors(response);
   },

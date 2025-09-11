@@ -1,6 +1,6 @@
 import { groqChatCompletion } from "../utils/groqClient";
 import { extractPdfTextWithUnpdf } from "./pdfParser";
-import { fromBuffer } from "pdf2pic";
+import { pdfToPng } from "pdf-to-png-converter";
 import * as fs from "fs";
 import * as path from "path";
 import { PDFDocument } from 'pdf-lib';
@@ -44,7 +44,7 @@ function isFullyDigitalText(text: string): boolean {
 }
 
 // Function to extract text directly from PDF
-async function extractDirectText(buffer: Buffer, logger: Logger): Promise<string> {
+export async function extractDirectText(buffer: Buffer, logger: Logger): Promise<string> {
   try {
     logger.info('Attempting direct text extraction');
     const text = await extractPdfTextWithUnpdf(buffer);
@@ -66,57 +66,43 @@ async function performOcrExtraction(
   logger: Logger
 ): Promise<string[]> {
   const ocrResults: string[] = [];
-  
   try {
-    const convert = fromBuffer(buffer, {
-      density: 300,
-      format: "png",
-      width: 2000,
-      height: 2800,
-      savePath: tmpDir
+    // Replace JS pdfToPng step with Python microservice call
+    logger.info('Sending PDF to python microservice for PNG conversion');
+    const formData = new FormData();
+    formData.append('file', new Blob([buffer]), 'document.pdf');
+    // Assumes fastapi service running on http://localhost:5001/convert
+    const resp = await fetch('http://localhost:8001/convert', {
+      method: 'POST',
+      body: formData
     });
-
-    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-      logger.info(`Processing page ${pageNum}/${totalPages}`);
-      
-      try {
-        const result = await convert(pageNum, { responseType: "buffer" });
-        if (!result?.buffer) {
-          logger.error(`Failed to convert page ${pageNum}`, 'No buffer returned');
-          continue;
-        }
-
-        const pageText = await groqChatCompletion(
-          `You are an intelligent document parsing agent specialized in OCR for ${detectedLanguage} language documents. 
-           Extract EVERYTHING from this image, including:
-           - All visible text, no matter how small or faint
-           - Headers, footers, page numbers
-           - Tables, charts, and their contents
-           - Annotations, stamps, watermarks
-           - Numbers, symbols, special characters
-           - Any handwritten text
-           - Metadata and document properties
-           - Text in all orientations
-           Pay special attention to ${detectedLanguage} language patterns and characters.
-           Preserve the exact content, formatting, and layout. Do not omit or summarize anything.`,
-          `This is page ${pageNum} of ${totalPages} in ${detectedLanguage} language. Extract EVERYTHING visible, preserving all details exactly as they appear.`,
-          result.buffer.toString("base64"),
-          "image/png"
-        );
-
-        if (pageText?.trim()) {
-          ocrResults.push(`=== Page ${pageNum} ===\n${pageText.trim()}`);
-          logger.info(`Successfully extracted text from page ${pageNum}`);
-        }
-
-      } catch (pageError) {
-        logger.error(`Failed to process page ${pageNum}`, pageError);
+    if (!resp.ok) throw new Error(`Python service error: ${resp.status}`);
+    const data = await resp.json();
+    if (!Array.isArray((data as {images: string[]}).images) || (data as {images: string[]}).images.length === 0) throw new Error('Python service returned no images');
+    // Each element should be a path to a PNG in a shared tmp directory, or a base64 string
+    for (let pageNum = 1; pageNum <= (data as {images: string[]}).images.length; pageNum++) {
+      const imagePath = (data as {images: string[]}).images[pageNum-1];
+      let imgBuffer;
+      if (imagePath?.startsWith('data:image/')) {
+        imgBuffer = Buffer.from(imagePath?.split(',')[1] || '', 'base64');
+      } else {
+        imgBuffer = imagePath ? await fs.promises.readFile(imagePath) : Buffer.from([]);
+      }
+      logger.info(`Processing page ${pageNum}/${(data as {images: string[]}).images.length}`);
+      const pageText = await groqChatCompletion(
+        `You are an intelligent document parsing agent specialized in OCR for ${detectedLanguage} language documents. \nExtract EVERYTHING from this image, including:\n- All visible text, no matter how small or faint\n- Headers, footers, page numbers\n- Tables, charts, and their contents\n- Annotations, stamps, watermarks\n- Numbers, symbols, special characters\n- Any handwritten text\n- Metadata and document properties\n- Text in all orientations\nPay special attention to ${detectedLanguage} language patterns and characters.\nPreserve the exact content, formatting, and layout. Do not omit or summarize anything.`,
+        `This is page ${pageNum} of ${(data as {images: string[]}).images.length} in ${detectedLanguage} language. Extract EVERYTHING visible, preserving all details exactly as they appear.`,
+        imgBuffer.toString('base64'),
+        'image/png'
+      );
+      if (pageText?.trim()) {
+        ocrResults.push(`=== Page ${pageNum} ===\n${pageText.trim()}`);
+        logger.info(`Successfully extracted text from page ${pageNum}`);
       }
     }
   } catch (error) {
     logger.error('Image extraction failed', error);
   }
-  
   return ocrResults;
 }
 
@@ -138,7 +124,7 @@ async function extractTextFromPdf(buffer: Buffer, detectedLanguage: string): Pro
   const logger = createLogger();
   logger.info('Starting PDF text extraction');
   
-  const pdfDoc = await PDFDocument.load(buffer);
+  const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
   const totalPages = pdfDoc.getPageCount();
   logger.info(`PDF has ${totalPages} pages`);
 
