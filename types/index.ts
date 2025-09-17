@@ -23,11 +23,14 @@ export interface ExtractResponse {
   extracted: any;
   templateId: string | null;
   usedTemplate: boolean;
+  confidence?: number;
+  templateMatch?: string;
 }
 
 export interface Template {
   fields: string[];
   id: string;
+  confidence?: number;
 }
 
 export interface LanguageDetectionResult {

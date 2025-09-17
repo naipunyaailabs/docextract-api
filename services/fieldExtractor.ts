@@ -12,6 +12,46 @@ type Logger = {
   error: (msg: string, err?: any) => void;
 };
 
+/**
+ * Preprocess document text for better template matching
+ * @param text Document text
+ * @returns Preprocessed text with structural information
+ */
+function preprocessDocumentText(text: string): string {
+  // Remove extra whitespace and normalize
+  let processed = text.replace(/\s+/g, ' ').trim();
+  
+  // Extract document structure information
+  const lines = processed.split('\n');
+  const nonEmptyLines = lines.filter(line => line.trim().length > 0);
+  
+  // Identify potential headers (lines in uppercase with less than 10 words)
+  const headers = nonEmptyLines.filter(line => {
+    const trimmed = line.trim();
+    return trimmed === trimmed.toUpperCase() && trimmed.split(' ').length <= 10;
+  });
+  
+  // Identify potential data patterns (lines with colons, numbers, dates)
+  const dataPatterns = nonEmptyLines.filter(line => {
+    return /[:\d\-\/]/.test(line) && line.length > 10;
+  });
+  
+  // Create a structured representation
+  const structuredRepresentation = `
+Document Structure:
+- Total characters: ${processed.length}
+- Total lines: ${lines.length}
+- Content lines: ${nonEmptyLines.length}
+- Headers: ${headers.length}
+- Data patterns: ${dataPatterns.length}
+
+Content Preview:
+${nonEmptyLines.slice(0, 20).join('\n')}
+`;
+  
+  return structuredRepresentation;
+}
+
 type ExtractionResult = {
   directText: string;
   ocrText: string;
@@ -90,7 +130,18 @@ async function performOcrExtraction(
       }
       logger.info(`Processing page ${pageNum}/${(data as {images: string[]}).images.length}`);
       const pageText = await groqChatCompletion(
-        `You are an intelligent document parsing agent specialized in OCR for ${detectedLanguage} language documents. \nExtract EVERYTHING from this image, including:\n- All visible text, no matter how small or faint\n- Headers, footers, page numbers\n- Tables, charts, and their contents\n- Annotations, stamps, watermarks\n- Numbers, symbols, special characters\n- Any handwritten text\n- Metadata and document properties\n- Text in all orientations\nPay special attention to ${detectedLanguage} language patterns and characters.\nPreserve the exact content, formatting, and layout. Do not omit or summarize anything.`,
+        `You are an intelligent document parsing agent specialized in OCR for ${detectedLanguage} language documents. 
+Extract EVERYTHING from this image, including:
+- All visible text, no matter how small or faint
+- Headers, footers, page numbers
+- Tables, charts, and their contents
+- Annotations, stamps, watermarks
+- Numbers, symbols, special characters
+- Any handwritten text
+- Metadata and document properties
+- Text in all orientations
+Pay special attention to ${detectedLanguage} language patterns and characters.
+Preserve the exact content, formatting, and layout. Do not omit or summarize anything.`,
         `This is page ${pageNum} of ${(data as {images: string[]}).images.length} in ${detectedLanguage} language. Extract EVERYTHING visible, preserving all details exactly as they appear.`,
         imgBuffer.toString('base64'),
         'image/png'
@@ -229,19 +280,20 @@ export async function extractDoc(buffer: Buffer, fileName: string, fileType: str
       return { language: "unknown", score: 0 };
     });
 
+  let extractedText = "";
+  
   if (isPdfDocument(extension, type)) {
-    return await extractTextFromPdf(buffer, detectedLanguage);
+    extractedText = await extractTextFromPdf(buffer, detectedLanguage);
+  } else if (isImageDocument(extension, type)) {
+    extractedText = await extractTextFromImage(buffer, extension, detectedLanguage);
+  } else if (isOtherSupportedDocument(extension, type)) {
+    extractedText = await extractTextFromOther(buffer, extension, detectedLanguage);
+  } else {
+    extractedText = await extractTextFromOther(buffer, extension, detectedLanguage);
   }
-
-  if (isImageDocument(extension, type)) {
-    return await extractTextFromImage(buffer, extension, detectedLanguage);
-  }
-
-  if (isOtherSupportedDocument(extension, type)) {
-    return await extractTextFromOther(buffer, extension, detectedLanguage);
-  }
-
-  return await extractTextFromOther(buffer, extension, detectedLanguage);
+  
+  // Return the original extracted text for processing
+  return extractedText;
 }
 
 export async function extractDocWithLang(buffer: Buffer, fileName: string, fileType: string): Promise<{ text: string, language: string, score: number }> {
@@ -253,4 +305,17 @@ export async function extractDocWithLang(buffer: Buffer, fileName: string, fileT
 
   const text = await extractDoc(buffer, fileName, fileType);
   return { text, language, score };
+}
+
+/**
+ * Extract document text and return both original and preprocessed versions
+ * @param buffer Document buffer
+ * @param fileName Document file name
+ * @param fileType Document MIME type
+ * @returns Object with original text and preprocessed text
+ */
+export async function extractDocWithPreprocessing(buffer: Buffer, fileName: string, fileType: string): Promise<{ originalText: string, preprocessedText: string }> {
+  const originalText = await extractDoc(buffer, fileName, fileType);
+  const preprocessedText = preprocessDocumentText(originalText);
+  return { originalText, preprocessedText };
 }

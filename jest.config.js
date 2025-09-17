@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/test'],
@@ -10,4 +10,8 @@ module.exports = {
     '!**/node_modules/**',
     '!**/vendor/**',
   ],
+  extensionsToTreatAsEsm: ['.ts'],
+  moduleNameMapper: {
+    '^(\.{1,2}/.*)\.js$': '$1',
+  },
 };

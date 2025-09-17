@@ -1,4 +1,4 @@
-import { extractDoc } from "../services/fieldExtractor";
+import { extractDoc, extractDocWithPreprocessing } from "../services/fieldExtractor";
 import { matchTemplate } from "../services/templateStore";
 import { groqChatCompletion } from "../utils/groqClient";
 import { createErrorResponse, createSuccessResponse } from "../utils/errorHandler";
@@ -20,13 +20,23 @@ export async function extractHandler(req: Request): Promise<Response> {
     const buffer = await file.arrayBuffer();
     
     // Use extractDoc for all file types
-    const text = await extractDoc(Buffer.from(buffer), file.name, file.type);
+    const { originalText, preprocessedText } = await extractDocWithPreprocessing(Buffer.from(buffer), file.name, file.type);
 
     // Optionally: Perform template matching and/or field/generic extraction downstream
-    const matchedTemplate: Template | null = await matchTemplate(text);
+    const matchedTemplateResult = await matchTemplate(preprocessedText);
+    const matchedTemplate: Template | null = matchedTemplateResult 
+      ? { 
+          fields: matchedTemplateResult.fields, 
+          id: matchedTemplateResult.id,
+          confidence: matchedTemplateResult.confidence
+        } 
+      : null;
+    
+    // Only use template-based extraction if confidence is above threshold (e.g., 70)
+    const useTemplateExtraction = matchedTemplateResult && matchedTemplateResult.confidence >= 70;
     
     const getExtractionPrompt = (docContent: string) => {
-      if (matchedTemplate) {
+      if (useTemplateExtraction && matchedTemplate) {
         return `Extract the following fields from the document: ${matchedTemplate.fields.join(", ")}. Respond ONLY with valid JSON. Do not include explanations, comments, or extra text. The response MUST start with '{' and end with '}'. If you cannot find a field, use null as its value. Document: ${docContent}`;
       } else if (userPrompt.trim()) {
         return `Extract the information described by the user from the document: \"${userPrompt}\" Respond ONLY with valid JSON. Document: ${docContent}`;
@@ -35,7 +45,7 @@ export async function extractHandler(req: Request): Promise<Response> {
       }
     };
 
-    const extractionPrompt = getExtractionPrompt(text);
+    const extractionPrompt = getExtractionPrompt(originalText);
     const response = await groqChatCompletion(
       "You are an advanced document parser and contextual extractor. You deeply understand document structures and can extract both explicit and implicit information. Respond ONLY with valid JSON.",
       extractionPrompt
@@ -54,8 +64,14 @@ export async function extractHandler(req: Request): Promise<Response> {
     const result: ExtractResponse = { 
       extracted, 
       templateId: matchedTemplate?.id || null, 
-      usedTemplate: !!matchedTemplate 
+      usedTemplate: !!(useTemplateExtraction && matchedTemplate)
     };
+    
+    // Add confidence information to the response if available
+    if (matchedTemplateResult) {
+      (result as any).confidence = matchedTemplateResult.confidence;
+      (result as any).templateMatch = matchedTemplateResult.id;
+    }
     
     return createSuccessResponse(result);
   } catch (error) {
