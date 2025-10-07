@@ -12,15 +12,7 @@ export interface RfpAgentResult {
   parsed: any | null;
   schemaValid: boolean;
   error?: string;
-}
-
-// Utility: Audit required schema keys and array fields
-// const requiredKeys = [
-//   "title","summary","issuing_organization","reference_number","release_date","due_date","submission_instructions","contact_information","project_overview","requirements","deliverables","evaluation_criteria","key_dates","clauses","terms_and_conditions","appendices","faqs","full_text"
-// ];
-
-function validateRfpSchemaFlexible(obj: any): boolean {
-  return obj && typeof obj === "object";
+  htmlSummary?: string;
 }
 
 function stripCodeFences(text: string): string {
@@ -53,23 +45,38 @@ export async function runFullRfpDetailAgent(fileBuffer: Buffer, fileName: string
 
 export async function runRfpAgent({ documentText, systemPromptOverride }: RfpAgentOptions): Promise<RfpAgentResult> {
   const prompt = rfpSummarizePrompt.replace("{{document_text}}", documentText);
-  const systemPrompt = systemPromptOverride || "You are an expert at strict JSON extraction from RFPs. Respond with only valid, comprehensive, nested JSON.";
+  const systemPrompt = systemPromptOverride || "You are an expert at creating detailed, comprehensive summaries of RFP documents. Create a complete HTML summary of the RFP document, preserving ALL information and translating content to English. Ensure the HTML is well-formed and can be directly rendered in a browser. DO NOT OMIT ANY DETAILS from the original document.";
 
   let raw = "";
   let parsed: any = null;
   let schemaValid = false;
   let error = undefined;
+  let htmlSummary = undefined;
 
   try {
+    console.log("[RFP Agent] Sending request to Groq API with document length:", documentText.length);
     raw = await groqChatCompletion(systemPrompt, prompt);
+    console.log("[RFP Agent] Received response from Groq API with raw length:", raw.length);
+    
     const cleaned = stripCodeFences(raw);
-    parsed = JSON.parse(cleaned);
-    schemaValid = validateRfpSchemaFlexible(parsed);
-    if (!schemaValid) {
-      error = "RFP extraction response was not a valid JSON object.";
+    console.log("[RFP Agent] Cleaned response length:", cleaned.length);
+    
+    // Extract HTML content from the response
+    htmlSummary = cleaned;
+    
+    // Check if the response contains HTML
+    if (cleaned.includes("<html") || cleaned.includes("<!DOCTYPE")) {
+      schemaValid = true;
+      console.log("[RFP Agent] HTML summary generated successfully");
+    } else {
+      error = "RFP summary response was not valid HTML.";
+      console.log("[RFP Agent] Response is not valid HTML");
     }
   } catch (ex: any) {
     error = ex?.message || "Error during LLM invocation or parsing.";
+    console.log("[RFP Agent] Error during LLM invocation:", error);
   }
-  return { raw, parsed, schemaValid, error };
+  
+  console.log("[RFP Agent] Returning result with schemaValid:", schemaValid);
+  return { raw, parsed, schemaValid, error, htmlSummary };
 }

@@ -30,6 +30,11 @@ export function validateApiKey(req: Request): boolean {
  * @returns Response with 401 error if authentication fails, null if successful
  */
 export function authenticateRequest(req: Request): Response | null {
+  // Allow OPTIONS preflight requests without authentication
+  if (req.method === "OPTIONS") {
+    return null;
+  }
+  
   if (!validateApiKey(req)) {
     return new Response(
       JSON.stringify({ 

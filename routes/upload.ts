@@ -27,8 +27,15 @@ export async function uploadHandler(req: Request): Promise<Response> {
     const text = await extractDoc(Buffer.from(buffer), file.name, file.type);
 
     await storeTemplate(text, fields);
-    const response: UploadResponse = { message: "Template stored successfully" };
-    return createSuccessResponse(response);
+    // Return the response in the format expected by the frontend
+    const formattedResponse = {
+      success: true,
+      data: {
+        result: { message: "Template stored successfully" },
+        logs: []
+      }
+    };
+    return createSuccessResponse(formattedResponse);
   } catch (error) {
     console.error("[Upload Handler Error]:", error);
     return createErrorResponse("Failed to store template", 500, { error: (error as Error).message });

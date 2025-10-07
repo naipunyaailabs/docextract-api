@@ -73,7 +73,16 @@ export async function extractHandler(req: Request): Promise<Response> {
       (result as any).templateMatch = matchedTemplateResult.id;
     }
     
-    return createSuccessResponse(result);
+    // Return the response in the format expected by the frontend
+    const formattedResponse = {
+      success: true,
+      data: {
+        result: result,
+        logs: []
+      }
+    };
+    
+    return createSuccessResponse(formattedResponse);
   } catch (error) {
     console.error("[Extract Handler Error]:", error);
     return createErrorResponse("Failed to extract information from document", 500, { error: (error as Error).message });

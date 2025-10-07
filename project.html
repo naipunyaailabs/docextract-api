@@ -3,95 +3,949 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Document Summarizer AI</title>
+  <title>DoCaptureAI - Document Processing Platform</title>
+  <link rel="icon" href="/favicon.ico" type="image/x-icon">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet" />
   <!-- jsPDF for PDF download -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <!-- html2canvas for rendering HTML to canvas (for PDF) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- SheetJS for Excel download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    /* Custom color palette */
+    :root {
+      --primary-yellow: #FFD700;
+      --dark-black: #121212;
+      --light-gray: #F5F5F5;
+      --medium-gray: #E0E0E0;
+      --text-dark: #333333;
+      --text-light: #FFFFFF;
+    }
+    
+    /* Light mode styles */
+    .light-mode {
+      background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+    }
+    
+    .light-mode .glass-effect {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .light-mode .gradient-border {
+      position: relative;
+      border-radius: 1rem;
+    }
+    
+    .light-mode .gradient-border::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 1rem;
+      padding: 2px;
+      background: linear-gradient(45deg, var(--primary-yellow), #333333);
+      -webkit-mask: 
+        linear-gradient(#fff 0 0) content-box, 
+        linear-gradient(#fff 0 0);
+      mask: 
+        linear-gradient(#fff 0 0) content-box, 
+        linear-gradient(#fff 0 0);
+      -webkit-mask-composite: destination-out;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+    
+    .light-mode .action-btn {
+      background: #ffffff;
+      color: var(--text-dark);
+      border: 1px solid #e0e0e0;
+    }
+    
+    .light-mode .action-btn.active {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(255, 215, 0, 0.5), 0 8px 10px -6px rgba(255, 215, 0, 0.5);
+      background: linear-gradient(45deg, var(--primary-yellow), #333333);
+      color: white;
+      border: none;
+    }
+    
+    .light-mode .action-btn:hover:not(.active) {
+      background: #f8f8f8;
+    }
+    
+    .light-mode input, 
+    .light-mode textarea {
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      color: var(--text-dark);
+    }
+    
+    .light-mode input:focus, 
+    .light-mode textarea:focus {
+      border-color: var(--primary-yellow);
+      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+    }
+    
+    .light-mode .result-card {
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .light-mode .result-card .prose {
+      background: #ffffff;
+      color: var(--text-dark);
+    }
+    
+    .light-mode .text-gray-400 {
+      color: #999999;
+    }
+    
+    .light-mode .text-gray-300 {
+      color: #cccccc;
+    }
+    
+    .light-mode .text-gray-100 {
+      color: #f5f5f5;
+    }
+    
+    .light-mode .bg-gray-800 {
+      background: #f5f5f5;
+    }
+    
+    .light-mode .bg-gray-900 {
+      background: #ffffff;
+    }
+    
+    .light-mode .border-gray-700 {
+      border-color: #e0e0e0;
+    }
+    
+    .light-mode .border-gray-800 {
+      border-color: #e0e0e0;
+    }
+    
+    .light-mode .prose {
+      color: var(--text-dark);
+      background: #ffffff;
+    }
+    
+    .light-mode .prose h1,
+    .light-mode .prose h2,
+    .light-mode .prose h3 {
+      color: var(--text-dark);
+    }
+    
+    .light-mode table {
+      background: #ffffff;
+    }
+    
+    .light-mode th {
+      background: #f5f5f5;
+      color: var(--text-dark);
+    }
+    
+    .light-mode td {
+      color: var(--text-dark);
+    }
+    
+    .light-mode .rfp-section {
+      background: #fafafa;
+    }
+    
+    .light-mode .rfp-section input,
+    .light-mode .rfp-section textarea {
+      background: #ffffff;
+    }
+    
+    /* Toggle button styles */
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid #e0e0e0;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      transition: all 0.3s ease;
+    }
+    
+    .light-mode .theme-toggle {
+      background: rgba(18, 18, 18, 0.8);
+    }
+    
+    .theme-toggle:hover {
+      transform: scale(1.1);
+    }
+    
+    /* Dark mode styles (default) */
+    .dark-mode {
+      background: linear-gradient(135deg, #121212 0%, #1a1a1a 100%);
+    }
+    
+    .dark-mode .glass-effect {
+      background: rgba(18, 18, 18, 0.9);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    
+    .dark-mode .action-btn {
+      background: #1f1f1f;
+      color: #f9fafb;
+    }
+    
+    .dark-mode .action-btn.active {
+      background: linear-gradient(45deg, var(--primary-yellow), #333333);
+      color: white;
+    }
+    
+    .dark-mode .result-card {
+      background: #121212;
+      border: 1px solid #333333;
+    }
+    
+    .dark-mode .result-card .prose {
+      background: #ffffff;
+    }
+    
+    /* Result card transition */
+    .result-card {
+      transition: all 0.3s ease;
+    }
+    
+    .result-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Custom styles for DoCaptureAI */
+    .logo-text {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    
+    .logo-highlight {
+      color: var(--primary-yellow);
+    }
+    
+    .section-title {
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(45deg, var(--primary-yellow), #333333);
+      color: white;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(255, 215, 0, 0.5), 0 8px 10px -6px rgba(255, 215, 0, 0.5);
+    }
+    
+    .btn-secondary {
+      background: #333333;
+      color: white;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-secondary:hover {
+      background: #444444;
+      transform: translateY(-2px);
+    }
+    
+    .card-header {
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+  </style>
 </head>
-<body class="bg-gray-950 font-sans leading-relaxed tracking-wide min-h-screen">
+<body class="dark-mode font-sans leading-relaxed tracking-wide min-h-screen py-8">
 
-  <div class="max-w-6xl mx-auto p-8 mt-12 bg-gray-900 border border-gray-800 shadow-2xl rounded-2xl">
-    <div class="flex justify-center ">
-      <h1 class="text-5xl mb-4 font-extrabold text-white text-center drop-shadow-lg tracking-tight select-none" style="text-shadow: 0 4px 24px #2563eb, 0 1px 0 #fff;">
-        DocExtract <span class="text-blue-500">AI</span>
+  <!-- Theme toggle button -->
+  <div class="theme-toggle" id="themeToggle">
+    <i class='bx bx-sun text-xl text-yellow-500'></i>
+  </div>
+
+  <div class="max-w-4xl mx-auto p-6 glass-effect border border-gray-800 shadow-2xl rounded-2xl">
+    <div class="flex justify-center mb-2">
+      <h1 class="text-4xl mb-2 font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-gray-800 text-center tracking-tight select-none logo-text">
+        Do<span class="logo-highlight">Capture</span>AI
       </h1>
     </div>
-    <p class="text-gray-400 mb-8">Upload a document (PDF, TXT, Markdown, or HTML). Optionally add a prompt to guide the summarization.</p>
+    <p class="text-gray-400 mb-8 text-center">Upload a document (PDF, TXT, Markdown, or HTML). Choose an action to perform on the document.</p>
 
-    <div class="grid grid-cols-2 gap-8">
-      <!-- Left Column - Input Form -->
-      <div>
-        <form id="uploadForm" class="space-y-6">
-          <div>
-            <label class="block text-gray-300 font-medium mb-3 flex items-center gap-2">
-              <i class='bx bx-upload text-xl'></i>
-              Upload Document
-            </label>
-            <input type="file" name="document" id="document" accept=".pdf,.txt,.md,.html"
-                   class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-blue-500 text-gray-100 transition-colors" required />
+    <!-- Input Form -->
+    <div class="mb-12 gradient-border bg-gray-900 p-6 rounded-2xl">
+      <form id="uploadForm" class="space-y-6">
+        <div>
+          <label class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+            <i class='bx bx-upload text-xl'></i>
+            Upload Document
+          </label>
+          <input type="file" name="document" id="document" accept=".pdf,.txt,.md,.html"
+                 class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-yellow-500 text-gray-100 transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-yellow-600 file:text-white hover:file:bg-yellow-700" required />
+        </div>
+
+        <div>
+          <label class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+            <i class='bx bx-cog text-xl'></i>
+            Action
+          </label>
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <button type="button" id="summarizeBtn"
+                    class="action-btn flex flex-col items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-4 px-4 rounded-lg shadow-lg transition-all duration-200 active">
+              <i class='bx bx-file-blank text-2xl'></i>
+              <span>Summarize</span>
+            </button>
+            <button type="button" id="extractBtn"
+                    class="action-btn flex flex-col items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-4 px-4 rounded-lg shadow-lg transition-all duration-200">
+              <i class='bx bx-search-alt-2 text-2xl'></i>
+              <span>Extract Fields</span>
+            </button>
+            <button type="button" id="rfpBtn"
+                    class="action-btn flex flex-col items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-4 px-4 rounded-lg shadow-lg transition-all duration-200">
+              <i class='bx bx-file-find text-2xl'></i>
+              <span>RFP Summarize</span>
+            </button>
+            <button type="button" id="rfpCreateBtn"
+                    class="action-btn flex flex-col items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-4 px-4 rounded-lg shadow-lg transition-all duration-200">
+              <i class='bx bx-file-plus text-2xl'></i>
+              <span>Create RFP</span>
+            </button>
           </div>
+        </div>
 
-          <div>
-            <label for="prompt" class="block text-gray-300 font-medium mb-3 flex items-center gap-2">
-              <i class='bx bx-edit text-xl'></i>
-              Prompt (Optional)
-            </label>
-            <input type="text" name="prompt" id="prompt" placeholder="E.g., Summarize in bullet points"
-                   class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-blue-500 text-gray-100 transition-colors" />
+        <div>
+          <label for="prompt" class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+            <i class='bx bx-edit text-xl'></i>
+            Prompt (Optional)
+          </label>
+          <input type="text" name="prompt" id="prompt" placeholder="E.g., Extract invoice details or Summarize in bullet points"
+                 class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-yellow-500 text-gray-100 transition-colors" />
+        </div>
+
+        <input type="hidden" id="actionType" name="actionType" value="summarize" />
+
+        <button type="submit"
+                class="w-full flex items-center justify-center gap-2 btn-primary py-3 px-6 rounded-lg shadow-lg transition-all duration-200">
+          <i class='bx bx-send'></i>
+          Process Document
+        </button>
+      </form>
+    </div>
+
+    <!-- RFP Creation Form -->
+    <div id="rfpCreationForm" class="mb-12 gradient-border bg-gray-900 p-6 rounded-2xl">
+      <h2 class="text-2xl font-semibold text-gray-100 mb-6 flex items-center gap-2 card-header">
+        <i class='bx bx-file-plus text-2xl'></i>
+        Create New RFP
+      </h2>
+      <form id="rfpForm" class="space-y-6">
+        <div>
+          <label for="rfpTitle" class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+            <i class='bx bx-font text-xl'></i>
+            RFP Title
+          </label>
+          <input type="text" id="rfpTitle" placeholder="E.g., Website Development RFP"
+                 class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-yellow-500 text-gray-100 transition-colors" required />
+        </div>
+
+        <div>
+          <label for="rfpOrganization" class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+            <i class='bx bx-building text-xl'></i>
+            Organization
+          </label>
+          <input type="text" id="rfpOrganization" placeholder="E.g., Tech Corp"
+                 class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-yellow-500 text-gray-100 transition-colors" required />
+        </div>
+
+        <div>
+          <label for="rfpDeadline" class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+            <i class='bx bx-calendar text-xl'></i>
+            Response Deadline
+          </label>
+          <input type="date" id="rfpDeadline"
+                 class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-yellow-500 text-gray-100 transition-colors" required />
+        </div>
+
+        <div id="rfpSectionsContainer">
+          <label class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+            <i class='bx bx-list-plus text-xl'></i>
+            Custom Sections (Optional)
+          </label>
+          <div class="text-center py-8 text-gray-500">
+            <i class='bx bx-file-blank text-4xl mb-2'></i>
+            <p>No custom sections added yet</p>
+            <p class="text-sm mt-1">Click "Add Section" to include custom content</p>
           </div>
+        </div>
 
-          <button type="submit"
-                  class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-200">
-            <i class='bx bx-search-alt-2'></i>
-            Summarize Document
+        <div class="flex gap-3">
+          <button type="button" id="addSectionBtn" class="flex items-center gap-2 btn-secondary py-2 px-4 rounded-lg transition-colors">
+            <i class='bx bx-plus'></i>
+            Add Section
           </button>
-        </form>
-      </div>
-
-      <!-- Right Column - Summary -->
-      <div id="result" class="border-l border-gray-800 pl-8">
-        <h2 class="text-2xl font-semibold text-gray-100 mb-6 flex items-center gap-2">
-          <i class='bx bx-list-check text-2xl'></i>
-          Summary
-        </h2>
-        <div class="flex items-center gap-4 mb-4">
-          <button id="downloadPdfBtn" class="hidden flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all duration-200">
-            <i class='bx bx-download'></i>
-            Download as PDF
+          <button type="button" id="useStandardSections" class="flex items-center gap-2 btn-secondary py-2 px-4 rounded-lg transition-colors">
+            <i class='bx bx-reset'></i>
+            Use Standard Sections
           </button>
         </div>
-        <div id="summaryContent" class="prose max-w-none text-gray-300 bg-gray-900 p-0">
-          <!-- The summary will be injected here. No extra background or padding. -->
-          <div class="text-gray-400">
-            <p>Your summary will appear here after processing.</p>
-          </div>
+
+        <div class="flex gap-3">
+          <button type="button" id="createRfpSubmit" class="flex-1 flex items-center justify-center gap-2 btn-primary py-3 px-6 rounded-lg shadow-lg transition-all duration-200">
+            <i class='bx bx-send'></i>
+            Generate RFP
+          </button>
+          <button type="button" id="cancelRfpCreation" class="flex items-center gap-2 btn-secondary py-3 px-6 rounded-lg transition-colors">
+            <i class='bx bx-x'></i>
+            Cancel
+          </button>
         </div>
-        <div id="loader" class="hidden mt-4">
-          <div class="flex items-center gap-2 text-blue-500">
-            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500"></div>
-            <span>Processing document...</span>
-          </div>
-        </div>
-        <div id="logs" class="mt-4 text-sm text-gray-400 space-y-1"></div>
+      </form>
+    </div>
+
+    <!-- Results Section -->
+    <div id="result" class="result-card gradient-border bg-gray-900 p-6 rounded-2xl">
+      <h2 class="text-2xl font-semibold text-gray-100 mb-6 flex items-center gap-2 card-header" id="resultTitle">
+        <i class='bx bx-list-check text-2xl'></i>
+        Result
+      </h2>
+      <div class="flex items-center gap-4 mb-4">
+        <button id="downloadPdfBtn" class="hidden flex items-center gap-2 btn-primary py-2 px-4 rounded-lg shadow transition-all duration-200">
+          <i class='bx bx-download'></i>
+          Download RFP Document
+        </button>
+        <button id="downloadExcelBtn" class="hidden flex items-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all duration-200">
+          <i class='bx bx-spreadsheet'></i>
+          Download as Excel
+        </button>
+        <button id="downloadHtmlBtn" class="hidden flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all duration-200">
+          <i class='bx bx-download'></i>
+          Download as HTML
+        </button>
       </div>
+      <div id="summaryContent" class="prose max-w-none bg-white p-4 rounded-lg">
+        <!-- The summary will be injected here with a white background -->
+        <div class="text-gray-400">
+          <p>Your result will appear here after processing.</p>
+        </div>
+      </div>
+      <div id="loader" class="hidden mt-4">
+        <div class="flex items-center gap-2 text-yellow-500">
+          <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-500"></div>
+          <span>Processing document...</span>
+        </div>
+      </div>
+      <div id="logs" class="mt-4 text-sm text-gray-400 space-y-1"></div>
     </div>
   </div>
 
   <script>
+    // Theme toggle functionality
+    const themeToggle = document.getElementById('themeToggle');
+    const body = document.body;
+    
+    // Check for saved theme preference or default to dark mode
+    const savedTheme = localStorage.getItem('theme') || 'dark-mode';
+    body.classList.add(savedTheme);
+    
+    // Update toggle button icon based on current theme
+    function updateToggleIcon() {
+      const icon = themeToggle.querySelector('i');
+      if (body.classList.contains('light-mode')) {
+        icon.className = 'bx bx-moon text-xl text-gray-800';
+      } else {
+        icon.className = 'bx bx-sun text-xl text-yellow-500';
+      }
+    }
+    
+    updateToggleIcon();
+    
+    // Toggle theme on button click
+    themeToggle.addEventListener('click', () => {
+      if (body.classList.contains('dark-mode')) {
+        body.classList.remove('dark-mode');
+        body.classList.add('light-mode');
+        localStorage.setItem('theme', 'light-mode');
+      } else {
+        body.classList.remove('light-mode');
+        body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark-mode');
+      }
+      updateToggleIcon();
+    });
+    
     const form = document.getElementById('uploadForm');
+    const rfpForm = document.getElementById('rfpForm');
     const result = document.getElementById('result');
     const summaryContent = document.getElementById('summaryContent');
     const loader = document.getElementById('loader');
     const logs = document.getElementById('logs');
     const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+    const downloadExcelBtn = document.getElementById('downloadExcelBtn');
+    const downloadHtmlBtn = document.getElementById('downloadHtmlBtn');
+    const actionButtons = document.querySelectorAll('.action-btn');
+    const rfpCreationForm = document.getElementById('rfpCreationForm');
+    const addSectionBtn = document.getElementById('addSectionBtn');
+    const rfpSectionsContainer = document.getElementById('rfpSectionsContainer');
+    const useStandardSections = document.getElementById('useStandardSections');
+    const createRfpSubmit = document.getElementById('createRfpSubmit');
+    const cancelRfpCreation = document.getElementById('cancelRfpCreation');
+    const rfpCreateBtn = document.getElementById('rfpCreateBtn');
+
+    // Store extracted data for Excel export
+    let extractedData = null;
+    let currentRfpHtml = null; // Store the generated RFP HTML for download
+
+    // Set active state for action buttons
+    const setActiveButton = (activeBtn) => {
+      actionButtons.forEach(btn => {
+        btn.classList.remove('active');
+        btn.classList.remove('bg-gradient-to-r', 'from-yellow-600', 'to-gray-800');
+        btn.classList.add('bg-gray-800');
+      });
+      activeBtn.classList.add('active');
+      activeBtn.classList.remove('bg-gray-800');
+      activeBtn.classList.add('bg-gradient-to-r', 'from-yellow-600', 'to-gray-800');
+    };
 
     const addLog = (message) => {
       const timestamp = new Date().toLocaleTimeString();
-      logs.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+      logs.innerHTML += `<div class="py-1 border-b border-gray-800 last:border-0">[${timestamp}] ${message}</div>`;
     };
+
+    // Set action type
+    document.getElementById('summarizeBtn').addEventListener('click', () => {
+      document.getElementById('actionType').value = 'summarize';
+      document.getElementById('resultTitle').innerHTML = '<i class="bx bx-list-check text-2xl"></i> Summary';
+      setActiveButton(document.getElementById('summarizeBtn'));
+      // Hide RFP creation form
+      rfpCreationForm.style.display = 'none';
+    });
+
+    document.getElementById('extractBtn').addEventListener('click', () => {
+      document.getElementById('actionType').value = 'extract';
+      document.getElementById('resultTitle').innerHTML = '<i class="bx bx-search-alt-2 text-2xl"></i> Extracted Fields';
+      setActiveButton(document.getElementById('extractBtn'));
+      // Hide RFP creation form
+      rfpCreationForm.style.display = 'none';
+    });
+
+    document.getElementById('rfpBtn').addEventListener('click', () => {
+      document.getElementById('actionType').value = 'rfp';
+      document.getElementById('resultTitle').innerHTML = '<i class="bx bx-file-find text-2xl"></i> RFP Summary';
+      setActiveButton(document.getElementById('rfpBtn'));
+      // Hide RFP creation form
+      rfpCreationForm.style.display = 'none';
+    });
+
+    // RFP Creation button
+    rfpCreateBtn.addEventListener('click', () => {
+      // Hide the main form and show the RFP creation form
+      document.getElementById('uploadForm').parentElement.style.display = 'none';
+      rfpCreationForm.style.display = 'block';
+      document.getElementById('resultTitle').innerHTML = '<i class="bx bx-file-plus text-2xl"></i> Create RFP';
+      setActiveButton(rfpCreateBtn);
+    });
+
+    // Cancel RFP creation
+    cancelRfpCreation.addEventListener('click', () => {
+      // Show the main form and hide the RFP creation form
+      document.getElementById('uploadForm').parentElement.style.display = 'block';
+      rfpCreationForm.style.display = 'none';
+      setActiveButton(document.getElementById('summarizeBtn'));
+      document.getElementById('actionType').value = 'summarize';
+      document.getElementById('resultTitle').innerHTML = '<i class="bx bx-list-check text-2xl"></i> Summary';
+    });
+
+    // Set initial active button
+    setActiveButton(document.getElementById('summarizeBtn'));
+
+    // Add new section to RFP form
+    addSectionBtn.addEventListener('click', () => {
+      // Remove the "no sections" message if it exists
+      const noSectionsMessage = rfpSectionsContainer.querySelector('.text-center');
+      if (noSectionsMessage) {
+        noSectionsMessage.remove();
+      }
+      
+      // Instead of adding individual section inputs, we'll add a single textarea for all sections
+      const existingTextarea = rfpSectionsContainer.querySelector('.all-sections-content');
+      if (!existingTextarea) {
+        const newSection = document.createElement('div');
+        newSection.className = 'all-sections mb-4 p-4 bg-gray-800 rounded-lg';
+        newSection.innerHTML = `
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-gray-300 font-medium">All Custom Sections</h3>
+            <button type="button" class="remove-section text-red-500 hover:text-red-400">
+              <i class='bx bx-trash'></i>
+            </button>
+          </div>
+          <textarea class="all-sections-content w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-yellow-500 text-gray-100" placeholder="Enter all your custom sections here. You can use ## for section titles." rows="10"></textarea>
+          <p class="text-sm text-gray-500 mt-2">Enter all your custom sections in a single text area. Use ## followed by a space for section titles (e.g., ## Executive Summary).</p>
+        `;
+        rfpSectionsContainer.appendChild(newSection);
+      }
+    });
+
+    // Remove section from RFP form
+    rfpSectionsContainer.addEventListener('click', (e) => {
+      if (e.target.closest('.remove-section')) {
+        const section = e.target.closest('.all-sections');
+        if (section) {
+          section.remove();
+          // Show the "no sections" message
+          const noSectionsMessage = document.createElement('div');
+          noSectionsMessage.className = 'text-center py-8 text-gray-500';
+          noSectionsMessage.innerHTML = `
+            <i class='bx bx-file-blank text-4xl mb-2'></i>
+            <p>No custom sections added yet</p>
+            <p class="text-sm mt-1">Click "Add Section" to include custom content</p>
+          `;
+          rfpSectionsContainer.appendChild(noSectionsMessage);
+          addLog('All custom sections removed. Standard RFP sections will be generated.');
+        }
+      }
+    });
+
+    // Use standard sections
+    useStandardSections.addEventListener('click', () => {
+      // Clear existing sections and add a note that standard sections will be used
+      rfpSectionsContainer.innerHTML = `
+        <label class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+          <i class='bx bx-list-plus text-xl'></i>
+          Custom Sections (Optional)
+        </label>
+        <div class="bg-yellow-900/50 border border-yellow-700 rounded-lg p-4 mb-4">
+          <p class="text-yellow-300 text-sm">
+            <i class='bx bx-info-circle mr-2'></i>
+            Standard RFP sections will be automatically generated. Add custom sections below if needed.
+          </p>
+        </div>
+        <div class="text-center py-8 text-gray-500">
+          <i class='bx bx-file-blank text-4xl mb-2'></i>
+          <p>No custom sections added yet</p>
+          <p class="text-sm mt-1">Click "Add Section" to include custom content</p>
+        </div>
+      `;
+    });
+
+    // Create RFP
+    createRfpSubmit.addEventListener('click', async () => {
+      const title = document.getElementById('rfpTitle').value;
+      const organization = document.getElementById('rfpOrganization').value;
+      const deadline = document.getElementById('rfpDeadline').value;
+
+      if (!title || !organization || !deadline) {
+        addLog('Please fill in all required fields.');
+        return;
+      }
+
+      // Show loader
+      loader.classList.remove('hidden');
+      downloadHtmlBtn.classList.add('hidden');
+      downloadPdfBtn.classList.add('hidden');
+      downloadExcelBtn.classList.add('hidden');
+      logs.innerHTML = '';
+      addLog('Generating RFP...');
+
+      try {
+        // Collect section data - now from a single textarea
+        const allSectionsTextarea = rfpSectionsContainer.querySelector('.all-sections-content');
+        let sections = [];
+        
+        if (allSectionsTextarea && allSectionsTextarea.value.trim()) {
+          // Parse the single textarea content into sections
+          sections = parseSectionsFromText(allSectionsTextarea.value.trim());
+        }
+
+        // Prepare request data
+        // Only include sections if there are any custom sections
+        // If no custom sections, let the backend generate standard sections
+        const requestData = {
+          title,
+          organization,
+          deadline
+        };
+        
+        // Only add sections if there are custom sections with actual content
+        if (sections.length > 0) {
+          requestData.sections = sections;
+        }
+
+        // Send request to create RFP
+        const response = await fetch('/create-rfp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer 9bRgWiCIzXStqWs7azssmqEQ'
+          },
+          body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server error: ${response.status}`);
+        }
+
+        // Get the PDF response as blob
+        const blob = await response.blob();
+        
+        // Display a message in the results section with white background
+        summaryContent.innerHTML = `
+          <div class="bg-white text-center py-12">
+            <i class='bx bx-file text-6xl text-yellow-500 mb-4'></i>
+            <h3 class="text-2xl font-semibold text-gray-800 mb-2">RFP Generated Successfully</h3>
+            <p class="text-gray-600 mb-6">Your professional RFP document is ready for download.</p>
+            <button id="previewPdfBtn" class="btn-primary py-3 px-6 rounded-lg shadow-lg transition-all duration-200">
+              <i class='bx bx-download'></i> Download RFP Document
+            </button>
+          </div>
+        `;
+        
+        // Add event listener to the preview button
+        document.getElementById('previewPdfBtn').addEventListener('click', () => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${title.replace(/\s+/g, '_')}_RFP.docx`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+        
+        addLog('RFP generated successfully!');
+        
+        // Show download button
+        downloadPdfBtn.classList.remove('hidden');
+        downloadPdfBtn.textContent = 'Download RFP Document';
+        downloadPdfBtn.onclick = () => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${title.replace(/\s+/g, '_')}_RFP.docx`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+        
+        // Hide the RFP creation form and show the main form
+        document.getElementById('uploadForm').parentElement.style.display = 'block';
+        rfpCreationForm.style.display = 'none';
+        setActiveButton(document.getElementById('summarizeBtn'));
+        document.getElementById('actionType').value = 'summarize';
+        document.getElementById('resultTitle').innerHTML = '<i class="bx bx-file-plus text-2xl"></i> Generated RFP Document';
+      } catch (error) {
+        addLog(`Error: ${error.message}`);
+        summaryContent.innerHTML = `
+          <div class="bg-white text-red-500 flex items-center gap-2"><i class='bx bx-error-circle'></i>Failed to generate RFP: ${error.message}</div>`;
+      } finally {
+        loader.classList.add('hidden');
+      }
+    });
+
+    // Download HTML
+    downloadHtmlBtn.addEventListener('click', () => {
+      if (!currentRfpHtml) {
+        addLog('No RFP content available for download.');
+        return;
+      }
+
+      const title = document.getElementById('rfpTitle').value || 'RFP';
+      const filename = `${title.replace(/\s+/g, '_')}_RFP.html`;
+      
+      const blob = new Blob([currentRfpHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      addLog(`HTML file downloaded as ${filename}`);
+    });
+
+    // Function to flatten nested objects for better Excel representation
+    const flattenObject = (obj, prefix = '') => {
+      const flattened = {};
+      
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          const newKey = prefix ? `${prefix}.${key}` : key;
+          
+          if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+            // Recursively flatten nested objects
+            Object.assign(flattened, flattenObject(obj[key], newKey));
+          } else if (Array.isArray(obj[key])) {
+            // For arrays, convert to JSON string
+            flattened[newKey] = JSON.stringify(obj[key], null, 2);
+          } else {
+            // For primitive values, keep as is
+            flattened[newKey] = obj[key] === null ? 'null' : obj[key].toString();
+          }
+        }
+      }
+      
+      return flattened;
+    };
+
+    // Function to check if an array contains objects with similar structures (indicating a table)
+    const isArrayTable = (arr) => {
+      if (!Array.isArray(arr) || arr.length === 0) return false;
+      
+      // Check if all items are objects
+      const allObjects = arr.every(item => typeof item === 'object' && item !== null && !Array.isArray(item));
+      if (!allObjects) return false;
+      
+      // Check if all objects have the same keys
+      const firstKeys = Object.keys(arr[0]).sort();
+      return arr.every(item => {
+        const keys = Object.keys(item).sort();
+        return JSON.stringify(keys) === JSON.stringify(firstKeys);
+      });
+    };
+
+    // Function to convert array of objects to HTML table
+    const arrayToHtmlTable = (arr) => {
+      if (!isArrayTable(arr) || arr.length === 0) return null;
+      
+      const headers = Object.keys(arr[0]);
+      
+      let tableHtml = '<div class="overflow-x-auto"><table class="min-w-full bg-gray-800 rounded-lg">';
+      tableHtml += '<thead><tr class="bg-gray-700">';
+      
+      // Add headers
+      headers.forEach(header => {
+        tableHtml += `<th class="py-2 px-4 text-left text-gray-300">${header}</th>`;
+      });
+      
+      tableHtml += '</tr></thead><tbody>';
+      
+      // Add rows
+      arr.forEach((item, index) => {
+        const bgClass = index % 2 === 0 ? 'bg-gray-900' : 'bg-gray-800';
+        tableHtml += `<tr class="border-b border-gray-700 ${bgClass}">`;
+        
+        headers.forEach(header => {
+          let value = item[header];
+          if (value === null) {
+            value = '<span class="text-gray-500">null</span>';
+          } else if (typeof value === 'object') {
+            value = '<pre class="bg-gray-900 p-2 rounded text-xs">' + JSON.stringify(value, null, 2) + '</pre>';
+          } else {
+            value = value.toString();
+          }
+          tableHtml += `<td class="py-2 px-4 text-gray-100">${value}</td>`;
+        });
+        
+        tableHtml += '</tr>';
+      });
+      
+      tableHtml += '</tbody></table></div>';
+      return tableHtml;
+    };
+
+    // Function to parse sections from text content
+    function parseSectionsFromText(content) {
+      const sections = [];
+      const lines = content.split('\n');
+      
+      let currentTitle = '';
+      let currentContent = [];
+      
+      for (const line of lines) {
+        // Check if this line is a section header (## followed by text)
+        const headerMatch = line.match(/^##\s+(.+)$/);
+        if (headerMatch) {
+          // If we were collecting content for a previous section, save it
+          if (currentTitle) {
+            sections.push({
+              title: currentTitle,
+              content: currentContent.join('\n').trim() || 'Insert specific content for this section'
+            });
+          }
+          
+          // Start collecting content for the new section
+          currentTitle = headerMatch[1].trim();
+          currentContent = [];
+        } else if (currentTitle) {
+          // Add line to current section content
+          currentContent.push(line);
+        }
+      }
+      
+      // Don't forget to save the last section
+      if (currentTitle) {
+        sections.push({
+          title: currentTitle,
+          content: currentContent.join('\n').trim() || 'Insert specific content for this section'
+        });
+      }
+      
+      return sections;
+    }
+
+    // Excel Download Feature
+    downloadExcelBtn.addEventListener('click', () => {
+      if (!extractedData) {
+        addLog('No extracted data available for Excel export.');
+        return;
+      }
+
+      addLog('Preparing Excel download...');
+      
+      try {
+        // Flatten nested objects for better Excel representation
+        const flattenedData = flattenObject(extractedData);
+        
+        // Convert flattened data to worksheet format
+        const worksheetData = [];
+        
+        // Add headers
+        const headers = ['Field', 'Value'];
+        worksheetData.push(headers);
+        
+        // Add data rows
+        for (const [key, value] of Object.entries(flattenedData)) {
+          worksheetData.push([key, value]);
+        }
+        
+        // Create worksheet
+        const ws = XLSX.utils.aoa_to_sheet(worksheetData);
+        
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Extracted Fields');
+        
+        // Export to Excel file
+        XLSX.writeFile(wb, 'extracted_fields.xlsx');
+        
+        addLog('Excel file downloaded successfully.');
+      } catch (err) {
+        addLog('Failed to generate Excel file: ' + err.message);
+        console.error('Excel export error:', err);
+      }
+    });
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -99,15 +953,20 @@
       // Clear previous results and logs
       summaryContent.innerHTML = `
         <div class="text-gray-400">
-          <p>Your summary will appear here after processing.</p>
+          <p>Your result will appear here after processing.</p>
         </div>`;
       logs.innerHTML = '';
       loader.classList.remove('hidden');
       downloadPdfBtn.classList.add('hidden');
+      downloadExcelBtn.classList.add('hidden');
+      downloadHtmlBtn.classList.add('hidden');
+      extractedData = null;
+      currentRfpHtml = null;
 
       const formData = new FormData();
       const fileInput = document.getElementById('document');
       const promptInput = document.getElementById('prompt');
+      const actionType = document.getElementById('actionType').value;
 
       formData.append('document', fileInput.files[0]);
       if (promptInput.value) {
@@ -115,37 +974,194 @@
       }
 
       try {
-        addLog('Starting document upload...');
-        const response = await fetch('/summarize', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!response.ok) throw new Error('Server error');
-
-        addLog('Document uploaded successfully. Processing...');
-        const resultHtml = await response.text();
-        addLog('Summary generated successfully.');
-        // Remove any outer <div class="min-h-screen ..."> wrappers from the summary
-        // and inject only the summary content, so it blends with the dark background.
-        let cleanHtml = resultHtml;
-        // Try to extract only the inner summary if the response is wrapped
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = resultHtml;
-        // If the summary is wrapped in a single .min-h-screen, extract the inner part
-        const minHScreenDiv = tempDiv.querySelector('.min-h-screen');
-        if (minHScreenDiv) {
-          cleanHtml = minHScreenDiv.innerHTML;
+        addLog(`Starting document ${actionType}...`);
+        
+        let response;
+        if (actionType === 'summarize') {
+          response = await fetch('/summarize', {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Authorization': 'Bearer 9bRgWiCIzXStqWs7azssmqEQ'
+            }
+          });
+        } else if (actionType === 'rfp') {
+          response = await fetch('/summarize-rfp', {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Authorization': 'Bearer 9bRgWiCIzXStqWs7azssmqEQ'
+            }
+          });
+        } else {
+          response = await fetch('/extract', {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Authorization': 'Bearer 9bRgWiCIzXStqWs7azssmqEQ'
+            }
+          });
         }
-        summaryContent.innerHTML = cleanHtml;
 
-        // Show the download button now that summary is available
-        downloadPdfBtn.classList.remove('hidden');
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+        addLog(`Document uploaded successfully. Processing...`);
+        
+        if (actionType === 'summarize') {
+          const resultHtml = await response.text();
+          addLog('Summary generated successfully.');
+          // Remove any outer <div class="min-h-screen ..."> wrappers from the summary
+          // and inject only the summary content, so it blends with the dark background.
+          let cleanHtml = resultHtml;
+          // Try to extract only the inner summary if the response is wrapped
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = resultHtml;
+          // If the summary is wrapped in a single .min-h-screen, extract the inner part
+          const minHScreenDiv = tempDiv.querySelector('.min-h-screen');
+          if (minHScreenDiv) {
+            cleanHtml = minHScreenDiv.innerHTML;
+          }
+          // Ensure the result content has a white background
+          summaryContent.innerHTML = `<div class="bg-white">${cleanHtml}</div>`;
+          
+          // Show the download button now that summary is available
+          downloadPdfBtn.classList.remove('hidden');
+        } else if (actionType === 'rfp') {
+          const resultHtml = await response.text();
+          addLog('RFP summary generated successfully.');
+          
+          // Remove any outer <div class="min-h-screen ..."> wrappers from the summary
+          // and inject only the summary content, so it blends with the dark background.
+          let cleanHtml = resultHtml;
+          // Try to extract only the inner summary if the response is wrapped
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = resultHtml;
+          // If the summary is wrapped in a single .min-h-screen, extract the inner part
+          const minHScreenDiv = tempDiv.querySelector('.min-h-screen');
+          if (minHScreenDiv) {
+            cleanHtml = minHScreenDiv.innerHTML;
+          }
+          // Ensure the result content has a white background
+          summaryContent.innerHTML = `<div class="bg-white">${cleanHtml}</div>`;
+          
+          // Show the download button now that summary is available
+          downloadPdfBtn.classList.remove('hidden');
+        } else {
+          const resultJson = await response.json();
+          addLog('Fields extracted successfully.');
+          
+          // Store extracted data for Excel export
+          if (resultJson.extracted) {
+            extractedData = resultJson.extracted;
+          }
+          
+          // Format the extracted fields for display
+          let resultHtml = `
+            <div class="bg-gray-800 rounded-lg p-6 mb-6">
+              <h3 class="text-xl font-semibold text-white mb-4">Extraction Results</h3>`;
+          
+          if (resultJson.extracted) {
+            resultHtml += `
+              <div class="mb-4">
+                <h4 class="text-lg font-medium text-yellow-400 mb-2">Extracted Data</h4>
+                <div class="bg-gray-900 rounded-lg p-4">`;
+            
+            // Display extracted fields
+            for (const [key, value] of Object.entries(resultJson.extracted)) {
+              let displayValue = value;
+              
+              // Handle nested objects
+              if (value !== null && typeof value === 'object') {
+                if (Array.isArray(value)) {
+                  // Check if this is a table (array of objects with same structure)
+                  if (isArrayTable(value)) {
+                    // Display as HTML table
+                    displayValue = arrayToHtmlTable(value);
+                  } else {
+                    // For other arrays, display as a list
+                    displayValue = '<ul class="list-disc pl-5">';
+                    value.forEach(item => {
+                      if (typeof item === 'object' && item !== null) {
+                        displayValue += '<li class="mb-1"><pre class="bg-gray-800 p-2 rounded text-xs">' + JSON.stringify(item, null, 2) + '</pre></li>';
+                      } else {
+                        displayValue += '<li class="mb-1">' + (item !== null ? item.toString() : '<span class="text-gray-500">null</span>') + '</li>';
+                      }
+                    });
+                    displayValue += '</ul>';
+                  }
+                } else {
+                  // For objects, display as a table
+                  displayValue = '<div class="overflow-x-auto"><table class="min-w-full bg-gray-800 rounded-lg">';
+                  displayValue += '<thead><tr class="bg-gray-700">';
+                  displayValue += '<th class="py-2 px-4 text-left text-gray-300">Key</th>';
+                  displayValue += '<th class="py-2 px-4 text-left text-gray-300">Value</th>';
+                  displayValue += '</tr></thead><tbody>';
+                  
+                  for (const [nestedKey, nestedValue] of Object.entries(value)) {
+                    let formattedValue = nestedValue;
+                    if (nestedValue !== null && typeof nestedValue === 'object') {
+                      formattedValue = '<pre class="bg-gray-900 p-2 rounded text-xs">' + JSON.stringify(nestedValue, null, 2) + '</pre>';
+                    } else if (nestedValue === null) {
+                      formattedValue = '<span class="text-gray-500">null</span>';
+                    } else {
+                      formattedValue = nestedValue.toString();
+                    }
+                    displayValue += `<tr class="border-b border-gray-700">
+                      <td class="py-2 px-4 text-gray-300">${nestedKey}</td>
+                      <td class="py-2 px-4 text-gray-100">${formattedValue}</td>
+                    </tr>`;
+                  }
+                  
+                  displayValue += '</tbody></table></div>';
+                }
+              } else if (value === null) {
+                displayValue = '<span class="text-gray-500">null</span>';
+              } else {
+                displayValue = value.toString();
+              }
+              
+              resultHtml += `
+                <div class="mb-3 pb-3 border-b border-gray-700 last:border-b-0 last:mb-0 last:pb-0">
+                  <div class="font-medium text-gray-300">${key}</div>
+                  <div class="text-gray-100">${displayValue}</div>
+                </div>`;
+            }
+            
+            resultHtml += `</div></div>`;
+          }
+          
+          if (resultJson.templateId) {
+            resultHtml += `
+              <div class="text-sm text-gray-400 mt-4 pt-4 border-t border-gray-700">
+                <div>Template ID: ${resultJson.templateId}</div>
+                <div>Template Used: ${resultJson.usedTemplate ? 'Yes' : 'No'}</div>
+              </div>`;
+          }
+          
+          if (resultJson.confidence !== undefined) {
+            resultHtml += `
+              <div class="text-sm text-gray-400 mt-2">
+                Confidence: ${resultJson.confidence}%
+              </div>`;
+          }
+          
+          resultHtml += `</div>`;
+          // Ensure the result content has a white background
+          summaryContent.innerHTML = `<div class="bg-white">${resultHtml}</div>`;
+          
+          // Show Excel download button for extraction results
+          downloadExcelBtn.classList.remove('hidden');
+          downloadPdfBtn.classList.add('hidden');
+          downloadHtmlBtn.classList.add('hidden');
+        }
       } catch (error) {
         addLog(`Error: ${error.message}`);
+        // Ensure the error message has a white background
         summaryContent.innerHTML = `
-          <div class="text-red-500 flex items-center gap-2"><i class='bx bx-error-circle'></i>Failed to summarize: ${error.message}</div>`;
+          <div class="bg-white text-red-500 flex items-center gap-2"><i class='bx bx-error-circle'></i>Failed to process document: ${error.message}</div>`;
         downloadPdfBtn.classList.add('hidden');
+        downloadExcelBtn.classList.add('hidden');
+        downloadHtmlBtn.classList.add('hidden');
       } finally {
         loader.classList.add('hidden');
       }
@@ -201,6 +1217,7 @@
         alert('Failed to generate PDF: ' + err.message);
       }
     });
+
   </script>
 
 </body>

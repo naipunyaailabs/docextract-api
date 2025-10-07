@@ -1,0 +1,16 @@
+This is a test document for extraction.
+Complainant: John Doe
+Address: 123 Main St, Anytown, USA
+Phone: (555) 123-4567
+Email: johndoe@example.com
+
+Case Details:
+- Case Number: 2023-12345
+- Filed Date: 2023-10-15
+- Type: Civil Complaint
+
+Complainant Representative:
+- Name: Jane Smith, Esq.
+- Law Firm: Smith & Associates
+- Address: 456 Legal Ave, Law City, USA
+- Phone: (555) 987-6543

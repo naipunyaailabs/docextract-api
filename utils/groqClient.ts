@@ -93,8 +93,14 @@ export async function groqChatCompletion(
       stop: null
     });
 
-    return await processChatCompletionStream(chatCompletion);
+    const result = await processChatCompletionStream(chatCompletion);
+    
+    // Log the result for debugging
+    console.log('[groqChatCompletion] Generated response length:', result.length);
+    
+    return result;
   } catch (error) {
+    console.error('[groqChatCompletion] Error:', error);
     throw new Error(handleGroqError(error));
   }
 }

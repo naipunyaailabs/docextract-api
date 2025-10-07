@@ -1,0 +1,191 @@
+  <script>
+    const form = document.getElementById('uploadForm');
+    const result = document.getElementById('result');
+    const summaryContent = document.getElementById('summaryContent');
+    const loader = document.getElementById('loader');
+    const logs = document.getElementById('logs');
+    const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+
+    const addLog = (message) => {
+      const timestamp = new Date().toLocaleTimeString();
+      logs.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+    };
+
+    // Set action type
+    document.getElementById('summarizeBtn').addEventListener('click', () => {
+      document.getElementById('actionType').value = 'summarize';
+      document.getElementById('resultTitle').innerHTML = '<i class="bx bx-list-check text-2xl"></i> Summary';
+    });
+
+    document.getElementById('extractBtn').addEventListener('click', () => {
+      document.getElementById('actionType').value = 'extract';
+      document.getElementById('resultTitle').innerHTML = '<i class="bx bx-search-alt-2 text-2xl"></i> Extracted Fields';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Clear previous results and logs
+      summaryContent.innerHTML = `
+        <div class="text-gray-400">
+          <p>Your result will appear here after processing.</p>
+        </div>`;
+      logs.innerHTML = '';
+      loader.classList.remove('hidden');
+      downloadPdfBtn.classList.add('hidden');
+
+      const formData = new FormData();
+      const fileInput = document.getElementById('document');
+      const promptInput = document.getElementById('prompt');
+      const actionType = document.getElementById('actionType').value;
+
+      formData.append('document', fileInput.files[0]);
+      if (promptInput.value) {
+        formData.append('prompt', promptInput.value);
+      }
+
+      try {
+        addLog(`Starting document ${actionType}...`);
+        
+        let response;
+        if (actionType === 'summarize') {
+          response = await fetch('/summarize', {
+            method: 'POST',
+            body: formData,
+          });
+        } else {
+          response = await fetch('/extract', {
+            method: 'POST',
+            body: formData,
+          });
+        }
+
+        if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+        addLog(`Document uploaded successfully. Processing...`);
+        
+        if (actionType === 'summarize') {
+          const resultHtml = await response.text();
+          addLog('Summary generated successfully.');
+          // Remove any outer <div class="min-h-screen ..."> wrappers from the summary
+          // and inject only the summary content, so it blends with the dark background.
+          let cleanHtml = resultHtml;
+          // Try to extract only the inner summary if the response is wrapped
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = resultHtml;
+          // If the summary is wrapped in a single .min-h-screen, extract the inner part
+          const minHScreenDiv = tempDiv.querySelector('.min-h-screen');
+          if (minHScreenDiv) {
+            cleanHtml = minHScreenDiv.innerHTML;
+          }
+          summaryContent.innerHTML = cleanHtml;
+          
+          // Show the download button now that summary is available
+          downloadPdfBtn.classList.remove('hidden');
+        } else {
+          const resultJson = await response.json();
+          addLog('Fields extracted successfully.');
+          
+          // Format the extracted fields for display
+          let resultHtml = `
+            <div class="bg-gray-800 rounded-lg p-6 mb-6">
+              <h3 class="text-xl font-semibold text-white mb-4">Extraction Results</h3>`;
+          
+          if (resultJson.extracted) {
+            resultHtml += `
+              <div class="mb-4">
+                <h4 class="text-lg font-medium text-purple-400 mb-2">Extracted Data</h4>
+                <div class="bg-gray-900 rounded-lg p-4">`;
+            
+            // Display extracted fields
+            for (const [key, value] of Object.entries(resultJson.extracted)) {
+              resultHtml += `
+                <div class="mb-3 pb-3 border-b border-gray-700 last:border-b-0 last:mb-0 last:pb-0">
+                  <div class="font-medium text-gray-300">${key}</div>
+                  <div class="text-gray-100">${value !== null ? value : '<span class="text-gray-500">Not found</span>'}</div>
+                </div>`;
+            }
+            
+            resultHtml += `</div></div>`;
+          }
+          
+          if (resultJson.templateId) {
+            resultHtml += `
+              <div class="text-sm text-gray-400 mt-4 pt-4 border-t border-gray-700">
+                <div>Template ID: ${resultJson.templateId}</div>
+                <div>Template Used: ${resultJson.usedTemplate ? 'Yes' : 'No'}</div>
+              </div>`;
+          }
+          
+          if (resultJson.confidence !== undefined) {
+            resultHtml += `
+              <div class="text-sm text-gray-400 mt-2">
+                Confidence: ${resultJson.confidence}%
+              </div>`;
+          }
+          
+          resultHtml += `</div>`;
+          summaryContent.innerHTML = resultHtml;
+          downloadPdfBtn.classList.add('hidden');
+        }
+      } catch (error) {
+        addLog(`Error: ${error.message}`);
+        summaryContent.innerHTML = `
+          <div class="text-red-500 flex items-center gap-2"><i class='bx bx-error-circle'></i>Failed to process document: ${error.message}</div>`;
+        downloadPdfBtn.classList.add('hidden');
+      } finally {
+        loader.classList.add('hidden');
+      }
+    });
+
+    // PDF Download Feature
+    downloadPdfBtn.addEventListener('click', async () => {
+      addLog('Preparing PDF download...');
+      // Use html2canvas to render the summaryContent to a canvas, then add to jsPDF
+      const summaryElement = summaryContent;
+      // Optionally, you can clone and style for white background for PDF
+      const clone = summaryElement.cloneNode(true);
+      clone.style.background = "#fff";
+      clone.style.color = "#222";
+      clone.style.padding = "24px";
+      clone.style.borderRadius = "12px";
+      clone.style.maxWidth = "700px";
+      clone.style.margin = "0 auto";
+      // Place clone in a hidden container for rendering
+      let hiddenDiv = document.getElementById('pdf-hidden-div');
+      if (!hiddenDiv) {
+        hiddenDiv = document.createElement('div');
+        hiddenDiv.id = 'pdf-hidden-div';
+        hiddenDiv.style.position = 'fixed';
+        hiddenDiv.style.left = '-9999px';
+        hiddenDiv.style.top = '0';
+        hiddenDiv.style.width = '800px';
+        hiddenDiv.style.zIndex = '-1';
+        document.body.appendChild(hiddenDiv);
+      }
+      hiddenDiv.innerHTML = '';
+      hiddenDiv.appendChild(clone);
+
+      try {
+        // Wait for fonts/images to load
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const canvas = await html2canvas(clone, {
+          backgroundColor: "#fff",
+          scale: 2,
+          useCORS: true
+        });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new window.jspdf.jsPDF({
+          orientation: canvas.width > canvas.height ? 'l' : 'p',
+          unit: 'px',
+          format: [canvas.width, canvas.height]
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+        pdf.save('summary.pdf');
+        addLog('PDF downloaded.');
+      } catch (err) {
+        addLog('Failed to generate PDF: ' + err.message);
+        alert('Failed to generate PDF: ' + err.message);
+      }
+    });
+  </script>

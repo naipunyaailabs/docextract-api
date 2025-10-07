@@ -1,34 +1,45 @@
 {
-  "name": "docapture-api",
+  "name": "docaptureai",
   "module": "index.ts",
   "type": "module",
   "private": true,
   "scripts": {
     "start": "bun index.ts",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "dev": "bun --watch index.ts",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage",
+    "build": "bun build index.ts --outdir ./dist",
+    "preview": "bun dist/index.js",
+    "seed:services": "bun scripts/seedServices.ts",
+    "add:document-services": "bun scripts/addDocumentServices.ts",
+    "update:document-services-only": "bun scripts/updateDocumentServicesOnly.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/jest": "^30.0.0",
-    "jest": "^30.0.5",
-    "ts-jest": "^29.4.1"
+    "@types/nodemailer": "^7.0.2",
+    "@types/pdfmake": "^0.2.11"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "@langchain/ollama": "^0.2.4",
     "@langchain/openai": "^0.5.13",
     "@langchain/qdrant": "^0.1.2",
     "@qdrant/js-client-rest": "^1.14.1",
     "@types/pdf-parse": "^1.1.5",
     "axios": "^1.10.0",
+    "docx": "^9.5.1",
     "file-type": "^21.0.0",
     "franc": "^6.2.0",
     "groq-sdk": "^0.5.0",
     "langchain": "^0.3.28",
-    "openai": "^5.5.1",
+    "markdown-docx": "^1.3.1",
+    "mongoose": "^8.0.0",
+    "nodemailer": "^7.0.7",
+    "openai": "^5.21.0",
     "pdf-img-convert": "^2.0.0",
     "pdf-lib": "^1.17.1",
     "pdf-poppler": "^0.2.1",
@@ -36,7 +47,12 @@
     "pdf-to-png-converter": "^3.7.1",
     "pdf2table": "^0.0.2",
     "pdfjs-dist": "^5.3.31",
+    "pdfmake": "^0.2.20",
     "sharp": "^0.34.2",
-    "unpdf": "^1.0.6"
-  }
+    "unpdf": "^1.0.6",
+    "xlsx": "^0.18.5"
+  },
+  "trustedDependencies": [
+    "sharp"
+  ]
 }

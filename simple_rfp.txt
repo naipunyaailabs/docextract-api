@@ -1,0 +1,40 @@
+REQUEST FOR PROPOSAL
+====================
+
+RFP Number: RFP-2023-001
+Title: IT Services for Digital Transformation
+Issue Date: October 1, 2023
+Response Due Date: November 15, 2023
+
+1. PROJECT OVERVIEW
+-------------------
+The City of Springfield seeks to modernize its IT infrastructure to improve citizen services and operational efficiency.
+
+2. SCOPE OF WORK
+---------------
+The selected vendor will:
+- Assess current IT systems
+- Design and implement cloud-based solutions
+- Provide staff training
+- Offer ongoing technical support
+
+3. SUBMISSION REQUIREMENTS
+--------------------------
+Proposals must include:
+- Technical approach
+- Project timeline
+- Cost breakdown
+- Team qualifications
+
+4. EVALUATION CRITERIA
+---------------------
+Proposals will be evaluated based on:
+- Technical approach (40%)
+- Cost competitiveness (30%)
+- Past performance (20%)
+- Project timeline (10%)
+
+Contact Information:
+Project Manager: Jane Smith
+Email: jsmith@springfield.gov
+Phone: (555) 123-4567

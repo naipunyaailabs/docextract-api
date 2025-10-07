@@ -1,0 +1,48 @@
+REQUEST FOR PROPOSAL (RFP)
+=========================
+
+RFP Number: RFP-2023-001
+Issue Date: October 15, 2023
+Response Due Date: November 30, 2023
+
+1. PROJECT OVERVIEW
+-------------------
+The City of Springfield is seeking proposals for the development of a new public transportation system. This project aims to improve connectivity and reduce traffic congestion in the downtown area.
+
+2. SCOPE OF WORK
+---------------
+The selected vendor will be responsible for:
+- Designing the transportation network
+- Procuring vehicles and equipment
+- Implementing the system within 18 months
+- Providing training for operators
+- Offering a 2-year maintenance period
+
+3. SUBMISSION REQUIREMENTS
+--------------------------
+Proposals must include:
+- Technical approach and methodology
+- Project timeline
+- Cost breakdown
+- Team qualifications
+- References from similar projects
+
+4. EVALUATION CRITERIA
+---------------------
+Proposals will be evaluated based on:
+- Technical approach (40%)
+- Cost competitiveness (30%)
+- Past performance (20%)
+- Project timeline (10%)
+
+5. CONTRACT TERMS
+----------------
+- Contract duration: 24 months
+- Payment schedule: Monthly milestones
+- Termination clause: 30 days notice
+- Warranty period: 2 years post-implementation
+
+Contact Information:
+Project Manager: Jane Smith
+Email: jsmith@springfield.gov
+Phone: (555) 123-4567

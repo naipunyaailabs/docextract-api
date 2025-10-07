@@ -75,16 +75,23 @@ export async function summarizeHandler(req: Request): Promise<Response> {
       </div>
       Document: ${text}`;
 
-    const response: string = await groqChatCompletion(
+    const summary: string = await groqChatCompletion(
       "You are an advanced document summarizer. You can understand complex documents and create concise, accurate summaries. Format your response using HTML with Tailwind CSS classes. Focus on the most important information and maintain the document's key meaning.",
       summarizationPrompt
     );
 
-    return new Response(
-      response.trim(),
-      { headers: { "Content-Type": "text/html" } // Keep HTML response for frontend compatibility
+    // Return the response in the format expected by the frontend
+    const formattedResponse = {
+      success: true,
+      data: {
+        result: {
+          summary: summary.trim()
+        },
+        logs: []
       }
-    );
+    };
+    
+    return createSuccessResponse(formattedResponse);
   } catch (error) {
     console.error("[Summarize Handler Error]:", error);
     // Return HTML error response for frontend compatibility

@@ -8,11 +8,10 @@ export const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 export const API_KEY = process.env.API_KEY || '';
 
 // Service URLs
-export const QDRANT_URL = process.env.QDRANT_URL || 'http://localhost:6333';
 export const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 
 // Application Settings
-export const PORT = parseInt(process.env.PORT || '5001', 10);
+export const PORT = parseInt(process.env.PORT || '5000', 10);
 export const NODE_ENV = process.env.NODE_ENV || 'development';
 
 /**
@@ -21,9 +20,7 @@ export const NODE_ENV = process.env.NODE_ENV || 'development';
  */
 export function validateConfig(): void {
   const requiredKeys = [
-    { name: 'OPENAI_API_KEY', value: OPENAI_API_KEY },
-    { name: 'GROQ_API_KEY', value: GROQ_API_KEY },
-    { name: 'QDRANT_URL', value: QDRANT_URL }
+    { name: 'GROQ_API_KEY', value: GROQ_API_KEY }
   ];
 
   const missingKeys = requiredKeys.filter(key => !key.value);
@@ -52,7 +49,6 @@ export function logConfig(): void {
   console.log(`  OPENAI_API_KEY: ${maskApiKey(OPENAI_API_KEY)}`);
   console.log(`  GROQ_API_KEY: ${maskApiKey(GROQ_API_KEY)}`);
   console.log(`  API_KEY: ${maskApiKey(API_KEY)}`);
-  console.log(`  QDRANT_URL: ${QDRANT_URL}`);
   console.log(`  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL}`);
   console.log(`  PORT: ${PORT}`);
   console.log(`  NODE_ENV: ${NODE_ENV}`);
