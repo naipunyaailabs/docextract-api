@@ -4,6 +4,7 @@
     "": {
       "name": "docapture-api",
       "dependencies": {
+        "@fastify/busboy": "^3.2.0",
         "@langchain/ollama": "^0.2.4",
         "@langchain/openai": "^0.5.13",
         "@langchain/qdrant": "^0.1.2",
@@ -117,6 +118,8 @@
     "@cfworker/json-schema": ["@cfworker/json-schema@4.1.1", "", {}, "sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og=="],
 
     "@emnapi/runtime": ["@emnapi/runtime@1.5.0", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-97/BJ3iXHww3djw6hYIfErCZFee7qCtrneuLa20UXFCOTCfBM2cvQHjWJ2EG0s0MtdNwInarqCTz35i4wWXHsQ=="],
+
+    "@fastify/busboy": ["@fastify/busboy@3.2.0", "", {}, "sha512-m9FVDXU3GT2ITSe0UaMA5rU3QkfC/UXtCU8y0gSN/GugTqtVldOBWIB5V6V3sbmenVZUIpU6f+mPEO2+m5iTaA=="],
 
     "@foliojs-fork/fontkit": ["@foliojs-fork/fontkit@1.9.2", "", { "dependencies": { "@foliojs-fork/restructure": "^2.0.2", "brotli": "^1.2.0", "clone": "^1.0.4", "deep-equal": "^1.0.0", "dfa": "^1.2.0", "tiny-inflate": "^1.0.2", "unicode-properties": "^1.2.2", "unicode-trie": "^2.0.0" } }, "sha512-IfB5EiIb+GZk+77TRB86AHroVaqfq8JRFlUbz0WEwsInyCG0epX2tCPOy+UfaWPju30DeVoUAXfzWXmhn753KA=="],
 

@@ -11,6 +11,7 @@ import { createRfpHandler } from "./routes/createRfp";
 import { authHandler } from "./routes/auth";
 import { servicesHandler } from "./routes/services";
 import { processDocumentHandler } from "./routes/processDocument";
+import { aguiProcessHandler } from "./routes/agui";
 import DatabaseService from "./services/database";
 
 // Validate configuration on startup
@@ -74,8 +75,14 @@ const server = serve({
       return addCors(response);
     }
 
+    // Handle AG-UI routes
+    if (url.pathname.startsWith("/agui/")) {
+      const response = await aguiProcessHandler(req);
+      return addCors(response);
+    }
+
     // Apply authentication to all API routes except the ones we want to keep public
-    const protectedRoutes = ["/upload", "/extract", "/summarize", "/reset", "/summarize-rfp", "/create-rfp"];
+    const protectedRoutes = ["/upload", "/extract", "/summarize", "/reset", "/summarize-rfp", "/create-rfp", "/agui"];
     if (protectedRoutes.includes(url.pathname) && req.method === "POST") {
       const authResponse = authenticateRequest(req);
       if (authResponse) {
@@ -102,7 +109,7 @@ const server = serve({
       console.error("[Server Error]:", error);
       response = new Response(JSON.stringify({ error: "Internal server error" }), { 
         status: 500, 
-        headers: { "Content-Type": "application/json" } 
+        headers: { "Content-Type": "application/json" }
       });
     }
 

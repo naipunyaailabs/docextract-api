@@ -1,21 +1,24 @@
-import { serve } from "bun";
 import { createErrorResponse, createSuccessResponse } from "../utils/errorHandler";
-import { validateApiKey } from "../utils/auth";
 import userService from "../services/userService";
 import sessionService from "../services/sessionService";
 import DatabaseService from "../services/database";
 import EmailService from "../services/emailService";
+import bcrypt from "bcryptjs";
 
 // Connect to database
 DatabaseService.connect().catch(err => {
   console.error("Failed to connect to database:", err);
 });
 
-// Helper function to hash passwords (in production, use a proper hashing library like bcrypt)
-function hashPassword(password: string): string {
-  // This is a simple hash for demo purposes only
-  // In production, use bcrypt or scrypt
-  return btoa(password);
+// Use a modern password hashing approach
+const SALT_ROUNDS = 12;
+
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS);
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
 }
 
 // Helper function to validate email format
@@ -83,7 +86,7 @@ async function registerHandler(req: Request): Promise<Response> {
 
     // Create user
     const userId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    const hashedPassword = hashPassword(password);
+    const hashedPassword = await hashPassword(password);
     
     // Generate email verification token
     const verificationToken = generateVerificationToken();
@@ -165,8 +168,8 @@ async function loginHandler(req: Request): Promise<Response> {
     }
 
     // Validate password
-    const hashedPassword = hashPassword(password);
-    if (user.password !== hashedPassword) {
+    const passwordValid = await verifyPassword(password, user.password);
+    if (!passwordValid) {
       return createErrorResponse("Invalid email or password", 401);
     }
 

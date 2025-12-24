@@ -1,6 +1,22 @@
 import { createRfp, createStandardRfp, createRfpWordDocument } from "../services/rfpCreator";
 import type { RfpSection } from "../services/rfpCreator";
 import { createErrorResponse, createSuccessResponse } from "../utils/errorHandler";
+import {
+  AGUIEventType,
+  createAGUIEvent,
+  sendSSEEvent,
+  createSSEHeaders,
+  generateThreadId,
+  generateRunId,
+  generateMessageId,
+  type RunStartedEvent,
+  type RunFinishedEvent,
+  type RunErrorEvent,
+  type TextMessageStartEvent,
+  type TextMessageContentEvent,
+  type TextMessageEndEvent,
+  type StateDeltaEvent
+} from "../utils/agui";
 
 interface CreateRfpRequest {
   title: string;
@@ -10,9 +26,27 @@ interface CreateRfpRequest {
 }
 
 export async function createRfpHandler(req: Request): Promise<Response> {
+  // Check if this is an AG-UI request (has Accept: text/event-stream header)
+  const isAGUIRequest = req.headers.get("Accept") === "text/event-stream";
+  
+  if (isAGUIRequest) {
+    return handleAGUICreateRfpRequest(req);
+  }
+  
+  // Existing non-AGUI implementation for backward compatibility
   try {
     // Get JSON data from request
-    const requestData = await req.json() as CreateRfpRequest;
+    let requestData: CreateRfpRequest;
+    try {
+      requestData = await req.json() as CreateRfpRequest;
+    } catch (e) {
+      return new Response(JSON.stringify({ 
+        error: "Invalid JSON data" 
+      }), { 
+        status: 400, 
+        headers: { "Content-Type": "application/json" } 
+      });
+    }
     
     // Validate required fields
     if (!requestData.title || !requestData.organization || !requestData.deadline) {
@@ -112,22 +146,14 @@ export async function createRfpHandler(req: Request): Promise<Response> {
       const wordBuffer = await createRfpWordDocument(rfpContent);
       console.log('[CreateRfpHandler] Word document generated successfully');
       
-      // Log the buffer size for debugging
-      console.log('[CreateRfpHandler] Generated Word document buffer size:', wordBuffer.byteLength);
-      
-      // Return a JSON response indicating success with file info
-      const formattedResponse = {
-        success: true,
-        data: {
-          result: {
-            message: "RFP document created successfully",
-            fileName: `${requestData.title.replace(/\s+/g, '_')}_RFP.docx`,
-            fileSize: wordBuffer.byteLength
-          },
-          logs: []
+      // Return the Word document as a blob response (this is what project.html expects)
+      return new Response(wordBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Content-Disposition": `attachment; filename="${requestData.title.replace(/\s+/g, '_')}_RFP.docx"`
         }
-      };
-      return createSuccessResponse(formattedResponse);
+      });
     } catch (docError: any) {
       console.error('[CreateRfpHandler] Error generating Word document:', docError);
       return new Response(JSON.stringify({ 
@@ -144,6 +170,171 @@ export async function createRfpHandler(req: Request): Promise<Response> {
     }), { 
       status: 500, 
       headers: { "Content-Type": "application/json" } 
+    });
+  }
+}
+
+// AG-UI compatible RFP creation handler
+async function handleAGUICreateRfpRequest(req: Request): Promise<Response> {
+  try {
+    // Create a new ReadableStream for SSE
+    const stream = new ReadableStream({
+      async start(controller) {
+        const threadId = generateThreadId();
+        const runId = generateRunId();
+        const messageId = generateMessageId();
+        
+        try {
+          // Send RUN_STARTED event
+          sendSSEEvent(controller, createAGUIEvent<RunStartedEvent>({
+            type: AGUIEventType.RUN_STARTED,
+            threadId,
+            runId
+          }));
+          
+          // Send TEXT_MESSAGE_START event
+          sendSSEEvent(controller, createAGUIEvent<TextMessageStartEvent>({
+            type: AGUIEventType.TEXT_MESSAGE_START,
+            messageId,
+            role: "assistant"
+          }));
+          
+          // Get JSON data from request
+          let requestData: CreateRfpRequest;
+          try {
+            requestData = await req.json() as CreateRfpRequest;
+          } catch (e) {
+            throw new Error("Invalid JSON data");
+          }
+          
+          // Validate required fields
+          if (!requestData.title || !requestData.organization || !requestData.deadline) {
+            throw new Error("Missing required fields: title, organization, and deadline are required");
+          }
+          
+          sendSSEEvent(controller, createAGUIEvent<TextMessageContentEvent>({
+            type: AGUIEventType.TEXT_MESSAGE_CONTENT,
+            messageId,
+            delta: `Starting RFP creation for "${requestData.title}"...\n`
+          }));
+          
+          // Send processing state update
+          sendSSEEvent(controller, createAGUIEvent<StateDeltaEvent>({
+            type: AGUIEventType.STATE_DELTA,
+            delta: { status: "validating_input" }
+          }));
+          
+          let rfpContent: import("../services/rfpCreator").RfpContent;
+          
+          if (requestData.sections && requestData.sections.length > 0) {
+            sendSSEEvent(controller, createAGUIEvent<TextMessageContentEvent>({
+              type: AGUIEventType.TEXT_MESSAGE_CONTENT,
+              messageId,
+              delta: "Creating custom RFP with provided sections...\n"
+            }));
+            
+            // Create custom RFP with provided sections
+            rfpContent = await createRfp({
+              title: requestData.title,
+              organization: requestData.organization,
+              deadline: requestData.deadline,
+              sections: requestData.sections
+            });
+          } else {
+            sendSSEEvent(controller, createAGUIEvent<TextMessageContentEvent>({
+              type: AGUIEventType.TEXT_MESSAGE_CONTENT,
+              messageId,
+              delta: "Creating standard RFP with default sections...\n"
+            }));
+            
+            // Create standard RFP with default sections
+            rfpContent = await createStandardRfp(
+              requestData.title,
+              requestData.organization,
+              requestData.deadline
+            );
+          }
+          
+          // Send processing state update
+          sendSSEEvent(controller, createAGUIEvent<StateDeltaEvent>({
+            type: AGUIEventType.STATE_DELTA,
+            delta: { status: "generating_document" }
+          }));
+          
+          sendSSEEvent(controller, createAGUIEvent<TextMessageContentEvent>({
+            type: AGUIEventType.TEXT_MESSAGE_CONTENT,
+            messageId,
+            delta: "Generating professional RFP document...\n"
+          }));
+          
+          // Create Word document from the RFP content
+          const wordBuffer = await createRfpWordDocument(rfpContent);
+          
+          sendSSEEvent(controller, createAGUIEvent<TextMessageContentEvent>({
+            type: AGUIEventType.TEXT_MESSAGE_CONTENT,
+            messageId,
+            delta: "\nRFP creation completed successfully!\n"
+          }));
+          
+          // Send final result
+          const result = {
+            title: rfpContent.title,
+            organization: rfpContent.organization,
+            deadline: rfpContent.deadline,
+            sectionsCount: rfpContent.sections.length
+          };
+          
+          sendSSEEvent(controller, createAGUIEvent<TextMessageContentEvent>({
+            type: AGUIEventType.TEXT_MESSAGE_CONTENT,
+            messageId,
+            delta: `\nResults:\n${JSON.stringify(result, null, 2)}\n`
+          }));
+          
+          // Send TEXT_MESSAGE_END event
+          sendSSEEvent(controller, createAGUIEvent<TextMessageEndEvent>({
+            type: AGUIEventType.TEXT_MESSAGE_END,
+            messageId
+          }));
+          
+          // Send RUN_FINISHED event with document as base64
+          // Convert Uint8Array to base64
+          const base64Document = Buffer.from(wordBuffer).toString('base64');
+          sendSSEEvent(controller, createAGUIEvent<RunFinishedEvent>({
+            type: AGUIEventType.RUN_FINISHED,
+            threadId,
+            runId,
+            result: { 
+              ...result,
+              document: base64Document,
+              filename: `${requestData.title.replace(/\s+/g, '_')}_RFP.docx`
+            }
+          }));
+          
+          // Close the stream
+          controller.close();
+        } catch (error) {
+          // Send RUN_ERROR event
+          sendSSEEvent(controller, createAGUIEvent<RunErrorEvent>({
+            type: AGUIEventType.RUN_ERROR,
+            message: (error as Error).message,
+            code: "PROCESSING_ERROR"
+          }));
+          
+          // Close the stream
+          controller.close();
+        }
+      }
+    });
+    
+    // Return SSE response
+    return new Response(stream, {
+      headers: createSSEHeaders()
+    });
+  } catch (error) {
+    console.error("[AGUI Create RFP Handler Error]:", error);
+    return new Response(JSON.stringify({ error: "Failed to process RFP creation with AG-UI protocol" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
     });
   }
 }

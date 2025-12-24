@@ -329,6 +329,15 @@
               <span>Create RFP</span>
             </button>
           </div>
+          
+          <!-- Add Template Upload Button -->
+          <div class="mt-4">
+            <button type="button" id="uploadTemplateBtn"
+                    class="action-btn flex flex-col items-center justify-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-4 px-4 rounded-lg shadow-lg transition-all duration-200">
+              <i class='bx bx-upload text-2xl'></i>
+              <span>Upload Template</span>
+            </button>
+          </div>
         </div>
 
         <div>
@@ -347,6 +356,44 @@
           <i class='bx bx-send'></i>
           Process Document
         </button>
+      </form>
+    </div>
+
+    <!-- Template Upload Form -->
+    <div id="templateUploadForm" class="mb-12 gradient-border bg-gray-900 p-6 rounded-2xl" style="display: none;">
+      <h2 class="text-2xl font-semibold text-gray-100 mb-6 flex items-center gap-2 card-header">
+        <i class='bx bx-upload text-2xl'></i>
+        Upload Template
+      </h2>
+      <form id="templateUploadFormInner" class="space-y-6">
+        <div>
+          <label class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+            <i class='bx bx-file text-xl'></i>
+            Template Document
+          </label>
+          <input type="file" id="templateDocument" accept=".pdf,.txt,.md,.html"
+                 class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-yellow-500 text-gray-100 transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-yellow-600 file:text-white hover:file:bg-yellow-700" required />
+        </div>
+
+        <div>
+          <label class="block text-gray-300 font-medium mb-3 flex items-center gap-2 section-title">
+            <i class='bx bx-list-check text-xl'></i>
+            Required Fields (One per line)
+          </label>
+          <textarea id="templateFields" placeholder="Enter required fields, one per line&#10;e.g.:&#10;Invoice Number&#10;Date&#10;Total Amount"
+                 class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg focus:outline-none focus:border-yellow-500 text-gray-100 transition-colors" rows="6"></textarea>
+        </div>
+
+        <div class="flex gap-3">
+          <button type="button" id="uploadTemplateSubmit" class="flex-1 flex items-center justify-center gap-2 btn-primary py-3 px-6 rounded-lg shadow-lg transition-all duration-200">
+            <i class='bx bx-upload'></i>
+            Upload Template
+          </button>
+          <button type="button" id="cancelTemplateUpload" class="flex items-center gap-2 btn-secondary py-3 px-6 rounded-lg transition-colors">
+            <i class='bx bx-x'></i>
+            Cancel
+          </button>
+        </div>
       </form>
     </div>
 
@@ -512,6 +559,17 @@
     // Store extracted data for Excel export
     let extractedData = null;
     let currentRfpHtml = null; // Store the generated RFP HTML for download
+    let authToken = '9bRgWiCIzXStqWs7azssmqEQ'; // Default API key
+
+    // Listen for auth token from parent window (when embedded in iframe)
+    window.addEventListener('message', function(event) {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data && event.data.type === 'SET_AUTH_TOKEN') {
+        authToken = event.data.token;
+        console.log('Auth token received from parent');
+      }
+    });
 
     // Set active state for action buttons
     const setActiveButton = (activeBtn) => {
@@ -535,24 +593,27 @@
       document.getElementById('actionType').value = 'summarize';
       document.getElementById('resultTitle').innerHTML = '<i class="bx bx-list-check text-2xl"></i> Summary';
       setActiveButton(document.getElementById('summarizeBtn'));
-      // Hide RFP creation form
+      // Hide RFP creation form and template upload form
       rfpCreationForm.style.display = 'none';
+      document.getElementById('templateUploadForm').style.display = 'none';
     });
 
     document.getElementById('extractBtn').addEventListener('click', () => {
       document.getElementById('actionType').value = 'extract';
       document.getElementById('resultTitle').innerHTML = '<i class="bx bx-search-alt-2 text-2xl"></i> Extracted Fields';
       setActiveButton(document.getElementById('extractBtn'));
-      // Hide RFP creation form
+      // Hide RFP creation form and template upload form
       rfpCreationForm.style.display = 'none';
+      document.getElementById('templateUploadForm').style.display = 'none';
     });
 
     document.getElementById('rfpBtn').addEventListener('click', () => {
       document.getElementById('actionType').value = 'rfp';
       document.getElementById('resultTitle').innerHTML = '<i class="bx bx-file-find text-2xl"></i> RFP Summary';
       setActiveButton(document.getElementById('rfpBtn'));
-      // Hide RFP creation form
+      // Hide RFP creation form and template upload form
       rfpCreationForm.style.display = 'none';
+      document.getElementById('templateUploadForm').style.display = 'none';
     });
 
     // RFP Creation button
@@ -564,11 +625,30 @@
       setActiveButton(rfpCreateBtn);
     });
 
+    // Template Upload button
+    document.getElementById('uploadTemplateBtn').addEventListener('click', () => {
+      // Hide the main form and show the template upload form
+      document.getElementById('uploadForm').parentElement.style.display = 'none';
+      document.getElementById('templateUploadForm').style.display = 'block';
+      document.getElementById('resultTitle').innerHTML = '<i class="bx bx-upload text-2xl"></i> Upload Template';
+      setActiveButton(document.getElementById('uploadTemplateBtn'));
+    });
+
     // Cancel RFP creation
     cancelRfpCreation.addEventListener('click', () => {
       // Show the main form and hide the RFP creation form
       document.getElementById('uploadForm').parentElement.style.display = 'block';
       rfpCreationForm.style.display = 'none';
+      setActiveButton(document.getElementById('summarizeBtn'));
+      document.getElementById('actionType').value = 'summarize';
+      document.getElementById('resultTitle').innerHTML = '<i class="bx bx-list-check text-2xl"></i> Summary';
+    });
+
+    // Cancel Template Upload
+    document.getElementById('cancelTemplateUpload').addEventListener('click', () => {
+      // Show the main form and hide the template upload form
+      document.getElementById('uploadForm').parentElement.style.display = 'block';
+      document.getElementById('templateUploadForm').style.display = 'none';
       setActiveButton(document.getElementById('summarizeBtn'));
       document.getElementById('actionType').value = 'summarize';
       document.getElementById('resultTitle').innerHTML = '<i class="bx bx-list-check text-2xl"></i> Summary';
@@ -694,7 +774,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer 9bRgWiCIzXStqWs7azssmqEQ'
+            'Authorization': `Bearer ${authToken}`
           },
           body: JSON.stringify(requestData)
         });
@@ -982,7 +1062,7 @@
             method: 'POST',
             body: formData,
             headers: {
-              'Authorization': 'Bearer 9bRgWiCIzXStqWs7azssmqEQ'
+              'Authorization': `Bearer ${authToken}`
             }
           });
         } else if (actionType === 'rfp') {
@@ -990,17 +1070,19 @@
             method: 'POST',
             body: formData,
             headers: {
-              'Authorization': 'Bearer 9bRgWiCIzXStqWs7azssmqEQ'
+              'Authorization': `Bearer ${authToken}`
             }
           });
-        } else {
+        } else if (actionType === 'extract') {
           response = await fetch('/extract', {
             method: 'POST',
             body: formData,
             headers: {
-              'Authorization': 'Bearer 9bRgWiCIzXStqWs7azssmqEQ'
+              'Authorization': `Bearer ${authToken}`
             }
           });
+        } else {
+          throw new Error(`Unknown action type: ${actionType}`);
         }
 
         if (!response.ok) throw new Error(`Server error: ${response.status}`);
@@ -1215,6 +1297,83 @@
       } catch (err) {
         addLog('Failed to generate PDF: ' + err.message);
         alert('Failed to generate PDF: ' + err.message);
+      }
+    });
+
+    // Upload Template
+    document.getElementById('uploadTemplateSubmit').addEventListener('click', async () => {
+      const templateDocument = document.getElementById('templateDocument');
+      const templateFields = document.getElementById('templateFields');
+
+      if (!templateDocument.files || !templateDocument.files[0]) {
+        addLog('Please select a template document.');
+        return;
+      }
+
+      // Show loader
+      loader.classList.remove('hidden');
+      downloadHtmlBtn.classList.add('hidden');
+      downloadPdfBtn.classList.add('hidden');
+      downloadExcelBtn.classList.add('hidden');
+      logs.innerHTML = '';
+      addLog('Uploading template...');
+
+      try {
+        const formData = new FormData();
+        formData.append('document', templateDocument.files[0]);
+        
+        // Parse fields from textarea
+        const fields = templateFields.value.split('\n')
+          .map(field => field.trim())
+          .filter(field => field.length > 0);
+        
+        if (fields.length > 0) {
+          formData.append('fields', JSON.stringify(fields));
+        }
+
+        // Send request to upload template
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        addLog('Template uploaded successfully!');
+        
+        // Display success message
+        summaryContent.innerHTML = `
+          <div class="bg-white text-center py-12">
+            <i class='bx bx-check-circle text-6xl text-green-500 mb-4'></i>
+            <h3 class="text-2xl font-semibold text-gray-800 mb-2">Template Uploaded Successfully</h3>
+            <p class="text-gray-600 mb-6">${result.message}</p>
+            <div class="text-left bg-gray-100 p-4 rounded-lg max-w-2xl mx-auto">
+              <h4 class="font-medium text-gray-800 mb-2">Template Details:</h4>
+              <p class="text-gray-600">Document: ${templateDocument.files[0].name}</p>
+              <p class="text-gray-600">Fields: ${fields.length > 0 ? fields.join(', ') : 'None specified'}</p>
+            </div>
+          </div>
+        `;
+        
+        // Hide the template upload form and show the main form
+        document.getElementById('uploadForm').parentElement.style.display = 'block';
+        document.getElementById('templateUploadForm').style.display = 'none';
+        setActiveButton(document.getElementById('summarizeBtn'));
+        document.getElementById('actionType').value = 'summarize';
+        document.getElementById('resultTitle').innerHTML = '<i class="bx bx-check-circle text-2xl"></i> Template Uploaded';
+      } catch (error) {
+        addLog(`Error: ${error.message}`);
+        summaryContent.innerHTML = `
+          <div class="bg-white text-red-500 flex items-center gap-2"><i class='bx bx-error-circle'></i>Failed to upload template: ${error.message}</div>`;
+      } finally {
+        loader.classList.add('hidden');
       }
     });
 

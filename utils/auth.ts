@@ -1,11 +1,12 @@
+import { NODE_ENV } from "./config";
+
 /**
  * Validates API key from Authorization header
  * @param req - The incoming request
  * @returns boolean indicating if the API key is valid
  */
 export function validateApiKey(req: Request): boolean {
-  // In a production environment, you would check against a database or environment variable
-  // For now, we'll use a simple check against the environment variable
+  // In a production environment, you would typically check against a database or environment variable
   const authHeader = req.headers.get("Authorization");
   
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -15,9 +16,14 @@ export function validateApiKey(req: Request): boolean {
   const apiKey = authHeader.substring(7); // Remove "Bearer " prefix
   const validApiKey = process.env.API_KEY;
   
-  // If no API key is configured, allow all requests (development mode)
+  // Fail closed in non-development environments if API_KEY is not configured
   if (!validApiKey) {
-    console.warn("No API_KEY configured in environment variables. Authentication is disabled.");
+    if (NODE_ENV !== "development") {
+      console.error("API_KEY is not configured; rejecting request in non-development environment");
+      return false;
+    }
+
+    console.warn("No API_KEY configured in environment variables. Authentication is disabled in development mode.");
     return true;
   }
   

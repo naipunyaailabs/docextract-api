@@ -21,23 +21,99 @@ function preprocessDocumentText(text: string): string {
   // Remove extra whitespace and normalize
   let processed = text.replace(/\s+/g, ' ').trim();
   
-  // Extract document structure information
-  const lines = processed.split('\n');
-  const nonEmptyLines = lines.filter(line => line.trim().length > 0);
+  // If we have very little content, don't try to preprocess it
+  if (processed.length < 50) {
+    return `Minimal content document:\n${processed}`;
+  }
   
-  // Identify potential headers (lines in uppercase with less than 10 words)
-  const headers = nonEmptyLines.filter(line => {
-    const trimmed = line.trim();
-    return trimmed === trimmed.toUpperCase() && trimmed.split(' ').length <= 10;
-  });
+  // Check if this looks like raw PDF structure with minimal content
+  if (processed.includes("%PDF-") && processed.includes("/Type")) {
+    console.log("[Preprocessing] Detected raw PDF structure");
+    
+    // Extract metadata if available
+    const metadata: any = {};
+    
+    // Extract common metadata fields
+    const metadataFields = [
+      'Creator', 'Producer', 'CreationDate', 'ModDate', 
+      'Subject', 'Title', 'Author', 'Keywords'
+    ];
+    
+    metadataFields.forEach(field => {
+      const regex = new RegExp(`${field}\\s*:\\s*([^\\n\\r]+)`, 'i');
+      const match = processed.match(regex);
+      if (match && match[1]) {
+        metadata[field.toLowerCase()] = match[1].trim();
+      }
+    });
+    
+    // Look for text content between stream objects
+    const streamMatches = processed.match(/stream\s*([\s\S]*?)\s*endstream/g);
+    let contentText = "";
+    
+    if (streamMatches && streamMatches.length > 0) {
+      // Extract text from streams
+      const streamTexts = streamMatches.map(match => {
+        const contentMatch = match.match(/stream\s*([\s\S]*?)\s*endstream/);
+        return contentMatch && contentMatch[1] ? contentMatch[1].trim() : "";
+      }).filter(text => text.length > 0);
+      
+      if (streamTexts.length > 0) {
+        contentText = streamTexts.join('\n\n');
+      }
+    }
+    
+    // If we still don't have meaningful content, create a more descriptive representation
+    if (!contentText || contentText.length < 50) {
+      const structuredRepresentation = `
+PDF Document Analysis:
+=====================
+
+Metadata:
+${Object.entries(metadata).map(([key, value]) => `- ${key}: ${value}`).join('\n')}
+
+Document Properties:
+- PDF Version: ${processed.match(/%PDF-(\d+\.\d+)/)?.[1] || 'Unknown'}
+- Creator: ${metadata.creator || 'Unknown'}
+- Producer: ${metadata.producer || 'Unknown'}
+- Creation Date: ${metadata.creationdate || 'Unknown'}
+- Modification Date: ${metadata.moddate || 'Unknown'}
+
+Content Analysis:
+- Total characters in document: ${processed.length}
+- Extracted text content: ${contentText ? contentText.substring(0, 200) + (contentText.length > 200 ? '...' : '') : 'None/Minimal'}
+- Page count: Unknown (structure only)
+- Fonts detected: ${processed.match(/\/Font\s*<<[\s\S]*?>>/g)?.length || 0} font definitions found
+
+Note: This document appears to be programmatically generated with minimal or no visible content. 
+For better extraction results, please upload a document with actual text content.
+`;
+      return structuredRepresentation;
+    } else {
+      // We have some content, so use it
+      processed = contentText;
+    }
+  }
   
-  // Identify potential data patterns (lines with colons, numbers, dates)
-  const dataPatterns = nonEmptyLines.filter(line => {
-    return /[:\d\-\/]/.test(line) && line.length > 10;
-  });
-  
-  // Create a structured representation
-  const structuredRepresentation = `
+  // For documents with reasonable content, do normal preprocessing
+  if (processed.length > 50) {
+    // Extract document structure information
+    const lines = processed.split('\n');
+    const nonEmptyLines = lines.filter(line => line.trim().length > 0);
+    
+    // Identify potential headers (lines in uppercase with less than 10 words)
+    const headers = nonEmptyLines.filter(line => {
+      const trimmed = line.trim();
+      return trimmed === trimmed.toUpperCase() && trimmed.split(' ').length <= 10;
+    });
+    
+    // Identify potential data patterns (lines with colons, numbers, dates)
+    const dataPatterns = nonEmptyLines.filter(line => {
+      return /[:\d\-\/]/.test(line) && line.length > 10;
+    });
+    
+    // Create a structured representation
+    const structuredRepresentation = `
 Document Structure:
 - Total characters: ${processed.length}
 - Total lines: ${lines.length}
@@ -48,8 +124,12 @@ Document Structure:
 Content Preview:
 ${nonEmptyLines.slice(0, 20).join('\n')}
 `;
+    
+    return structuredRepresentation;
+  }
   
-  return structuredRepresentation;
+  // For minimal content, just return as is
+  return processed;
 }
 
 type ExtractionResult = {
@@ -78,9 +158,36 @@ async function detectDocumentLanguage(buffer: Buffer, fileName: string): Promise
 
 // Function to check if PDF is fully digital
 function isFullyDigitalText(text: string): boolean {
-  return text.length > 0 && 
-         text.split('\n').length > 10 && 
-         /\w{5,}/.test(text);
+  // Check if text has meaningful content (not just PDF structure)
+  if (!text || text.length < 50) {
+    return false;
+  }
+  
+  // Check if this looks like raw PDF structure
+  const isPdfStructure = text.includes("%PDF-") && text.includes("/Type");
+  
+  // Additional checks for PDF structural content
+  const hasPdfObjects = /(\d+\s+\d+\s+obj)/.test(text);
+  const hasPdfStreams = /(stream\s*\n|endstream)/.test(text);
+  const hasPdfXref = /xref\s+\d+\s+\d+/.test(text);
+  
+  // If it looks like PDF structure, it's not fully digital text
+  if (isPdfStructure || hasPdfObjects || hasPdfStreams || hasPdfXref) {
+    return false;
+  }
+  
+  // Check if it has actual readable content
+  // Look for words with 3+ characters (more realistic for actual content)
+  const hasReadableContent = /[a-zA-Z]{3,}/.test(text) || /\d{3,}/.test(text);
+  
+  // If it has readable content, it's fully digital
+  if (hasReadableContent) {
+    return true;
+  }
+  
+  // Otherwise, check if it has enough non-whitespace characters
+  const nonWhitespaceChars = text.replace(/\s/g, '').length;
+  return nonWhitespaceChars > 50;
 }
 
 // Function to extract text directly from PDF
@@ -175,20 +282,24 @@ async function extractTextFromPdf(buffer: Buffer, detectedLanguage: string): Pro
   const logger = createLogger();
   logger.info('Starting PDF text extraction');
   
-  const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
-  const totalPages = pdfDoc.getPageCount();
-  logger.info(`PDF has ${totalPages} pages`);
+  try {
+    const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+    const totalPages = pdfDoc.getPageCount();
+    logger.info(`PDF has ${totalPages} pages`);
+  } catch (error) {
+    logger.error('Failed to load PDF document', error);
+  }
 
   // Try text extraction
   const directText = await extractDirectText(buffer, logger);
 
-  // If we have sufficient digital text, use it directly
+  // Check if we have meaningful content
   if (isFullyDigitalText(directText)) {
-    logger.info('PDF appears to be fully digital, skipping image extraction');
+    logger.info('PDF appears to be fully digital with readable content');
     return directText;
   }
 
-  logger.info('Starting image-based extraction for potentially scanned content');
+  logger.info('Starting image-based extraction for potentially scanned content or PDFs with minimal text');
   let ocrResults: string[] = [];
   
   try {
@@ -197,8 +308,19 @@ async function extractTextFromPdf(buffer: Buffer, detectedLanguage: string): Pro
     fs.mkdirSync(tmpDir, { recursive: true });
     logger.info('Created temp directory', { path: tmpDir });
 
+    // Get page count for OCR
+    let totalPages = 1;
+    try {
+      const pdfDoc = await PDFDocument.load(buffer, { ignoreEncryption: true });
+      totalPages = pdfDoc.getPageCount();
+    } catch (error) {
+      logger.error('Could not determine page count for OCR, defaulting to 1', error);
+    }
+
     ocrResults = await performOcrExtraction(buffer, totalPages, detectedLanguage, tmpDir, logger);
 
+  } catch (error) {
+    logger.error('OCR extraction failed', error);
   } finally {
     const tmpDir = path.resolve(__dirname, "../tmp", Date.now().toString());
     if (fs.existsSync(tmpDir)) {
@@ -210,8 +332,55 @@ async function extractTextFromPdf(buffer: Buffer, detectedLanguage: string): Pro
   const ocrText = ocrResults.join('\n\n');
   const combinedText = combineExtractionResults(directText, ocrText, detectedLanguage);
 
+  // If we still don't have meaningful content, try a different approach
+  if (!isFullyDigitalText(combinedText)) {
+    logger.info('Document has minimal content, attempting alternative extraction');
+    
+    // Try to extract any readable text from the buffer
+    const alternativeText = await extractAlternativeText(buffer);
+    if (alternativeText && alternativeText.length > combinedText.length) {
+      logger.info('Alternative extraction found more content', { 
+        alternativeLength: alternativeText.length, 
+        combinedLength: combinedText.length 
+      });
+      const altTextClean = alternativeText.replace(/\0/g, '').trim();
+      if (isFullyDigitalText(altTextClean)) {
+        return altTextClean;
+      }
+    }
+  }
+
+  // If we have meaningful content now, return it
+  if (isFullyDigitalText(combinedText)) {
+    return combinedText;
+  }
+
+  // As a last resort, try to extract anything that looks like readable text
   if (!combinedText.trim()) {
-    throw new Error('Failed to extract any text from the PDF');
+    logger.info('No text extracted, attempting final fallback extraction');
+    // Try one more approach - look for any readable text in the buffer
+    const finalAttempt = buffer.toString('utf-8');
+    // Extract content between parentheses which often contains readable text in PDFs
+    const parentheticalContent = finalAttempt.match(/\(([^)]{10,})\)/g);
+    if (parentheticalContent) {
+      const extracted = parentheticalContent
+        .map(match => match.slice(1, -1)) // Remove parentheses
+        .join(' ')
+        .replace(/\\n/g, ' ') // Replace escaped newlines with spaces
+        .replace(/\\t/g, ' ') // Replace escaped tabs with spaces
+        .replace(/\\\\/g, '\\') // Handle escaped backslashes
+        .replace(/\s+/g, ' ') // Normalize whitespace
+        .trim();
+      
+      if (extracted.length > combinedText.length && isFullyDigitalText(extracted)) {
+        logger.info('Final fallback extraction found readable content');
+        return extracted;
+      }
+    }
+    
+    // If all else fails, return the raw buffer as string (last resort)
+    logger.info('Returning raw buffer as final fallback');
+    return buffer.toString('utf-8').replace(/\0/g, '').trim();
   }
 
   logger.info('Extraction complete', {
@@ -222,6 +391,40 @@ async function extractTextFromPdf(buffer: Buffer, detectedLanguage: string): Pro
   });
 
   return combinedText;
+}
+
+async function extractAlternativeText(buffer: Buffer): Promise<string> {
+  try {
+    // Try to extract text by looking for readable content in the buffer
+    const text = buffer.toString('utf-8');
+    
+    // Look for content between common PDF text markers
+    const textMatches = text.match(/BT[\s\S]*?ET/g);
+    if (textMatches && textMatches.length > 0) {
+      // Extract readable text from between BT and ET markers
+      const extractedTexts = textMatches.map(match => {
+        // Remove PDF operators and extract readable content
+        return match.replace(/BT|ET|T[fdmws]\s*\[?[^\]]*\]?/g, '')
+                   .replace(/\([^)]*\)/g, (match) => match.slice(1, -1)) // Extract text from parentheses
+                   .replace(/\\[nrtbf]/g, (match) => {
+                     // Handle escape sequences
+                     const map: Record<string, string> = {
+                       '\\n': '\n', '\\r': '\r', '\\t': '\t', 
+                       '\\b': '\b', '\\f': '\f'
+                     };
+                     return map[match] || match;
+                   })
+                   .trim();
+      }).filter(text => text.length > 0);
+      
+      return extractedTexts.join('\n\n');
+    }
+    
+    return "";
+  } catch (error) {
+    console.error("[Alternative Text Extraction] Failed:", error);
+    return "";
+  }
 }
 
 async function extractTextFromImage(buffer: Buffer, extension: string, detectedLanguage: string): Promise<string> {
