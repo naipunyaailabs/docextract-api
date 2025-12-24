@@ -2,7 +2,7 @@ import { extractDoc, extractDocWithPreprocessing } from "../services/fieldExtrac
 import { matchTemplate } from "../services/templateStore";
 import { groqChatCompletion } from "../utils/groqClient";
 import { createErrorResponse } from "../utils/errorHandler";
-import { authenticateRequest } from "../utils/auth";
+import { authenticateRequest, validateToken } from "../utils/auth";
 import type { ExtractResponse, Template } from "../types";
 import { runRfpAgent } from "../services/rfpAgent";
 import { createRfp, createStandardRfp, createRfpWordDocument } from "../services/rfpCreator";
@@ -198,7 +198,7 @@ export async function aguiProcessHandler(req: Request): Promise<Response> {
       authToken = tokenParam;
     }
     
-    if (!authToken) {
+    if (!authToken || !(await validateToken(authToken))) {
       return new Response(JSON.stringify({ error: "Authentication required" }), {
         status: 401,
         headers: { "Content-Type": "application/json" }

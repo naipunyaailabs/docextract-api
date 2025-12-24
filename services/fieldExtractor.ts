@@ -5,12 +5,34 @@ import * as fs from "fs";
 import * as path from "path";
 import { PDFDocument } from 'pdf-lib';
 import { detectLanguage } from "../utils/languageDetector";
+import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
+import { Document } from "langchain/document";
+import * as mammoth from "mammoth";
+import * as XLSX from "xlsx";
 
 // Type definitions
 type Logger = {
   info: (msg: string, data?: any) => void;
   error: (msg: string, err?: any) => void;
 };
+
+/**
+ * Splits text into manageable chunks using LangChain's RecursiveCharacterTextSplitter
+ * @param text The text to split
+ * @param chunkSize Maximum size of each chunk (default: 25000 chars ~ 6-7k tokens)
+ * @param chunkOverlap Overlap between chunks (default: 1000 chars)
+ * @returns Array of text chunks
+ */
+export async function splitDocumentText(text: string, chunkSize: number = 25000, chunkOverlap: number = 1000): Promise<string[]> {
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize,
+    chunkOverlap,
+    separators: ["\n\n", "\n", " ", ""], // Split by paragraphs first, then lines, then words
+  });
+
+  const output = await splitter.createDocuments([text]);
+  return output.map(doc => doc.pageContent);
+}
 
 /**
  * Preprocess document text for better template matching
@@ -436,9 +458,58 @@ async function extractTextFromImage(buffer: Buffer, extension: string, detectedL
 }
 
 async function extractTextFromOther(buffer: Buffer, extension: string, detectedLanguage: string): Promise<string> {
-  const systemPrompt = `You are an intelligent document parsing agent specialized in ${detectedLanguage} language documents. Extract EVERYTHING from this document, including all text, formatting, metadata, and structural elements. Pay special attention to ${detectedLanguage} language patterns and characters.`;
-  const userPrompt = `Document binary (base64):\n${buffer.toString("base64").slice(0, 4000)}...\n\nExtract ALL content exactly as it appears, preserving all details and formatting.`;
-  return await groqChatCompletion(systemPrompt, userPrompt);
+  try {
+    // Handle Word documents
+    if (["docx", "doc"].includes(extension) || extension === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+      try {
+        const result = await mammoth.extractRawText({ buffer: buffer });
+        return result.value;
+      } catch (err) {
+        console.error("[ExtractTextFromOther] Mammoth extraction failed:", err);
+        // Fallback or rethrow?
+        return "";
+      }
+    }
+    
+    // Handle Excel spreadsheets
+    if (["xlsx", "xls", "csv"].includes(extension) || extension === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+      try {
+        const workbook = XLSX.read(buffer, { type: "buffer" });
+        let text = "";
+        workbook.SheetNames.forEach(sheetName => {
+          const sheet = workbook.Sheets[sheetName];
+          text += `--- Sheet: ${sheetName} ---\n`;
+          if (sheet) {
+            text += XLSX.utils.sheet_to_csv(sheet);
+          }
+          text += "\n\n";
+        });
+        return text;
+      } catch (err) {
+        console.error("[ExtractTextFromOther] XLSX extraction failed:", err);
+        return "";
+      }
+    }
+
+    // Handle HTML
+    if (["html", "htm"].includes(extension)) {
+      // Simple HTML text extraction (remove tags)
+      const content = buffer.toString("utf-8");
+      // Basic regex to strip tags, could be improved with cheerio/jsdom but this is lightweight
+      return content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+    }
+
+    // Default to text decoding for everything else (txt, md, json, etc.)
+    return buffer.toString("utf-8");
+
+  } catch (error) {
+    console.error(`[ExtractTextFromOther] Failed to extract text from ${extension} file:`, error);
+    return "";
+  }
 }
 
 // Function to determine document type
@@ -469,7 +540,10 @@ function isOtherSupportedDocument(
     ["doc", "docx"].includes(extension) ||
     type === "text/html" ||
     type === "text/markdown" ||
-    ["html", "md"].includes(extension)
+    ["html", "md", "txt", "csv", "json"].includes(extension) ||
+    type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
+    type === "application/vnd.ms-excel" ||
+    ["xlsx", "xls"].includes(extension)
   );
 }
 

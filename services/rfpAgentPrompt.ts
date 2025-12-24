@@ -1,5 +1,128 @@
 // RFP Summarization Prompt Template for LLM
 
+
+export const rfpMapPrompt = `INSTRUCTIONS:
+1. You are analyzing a SECTION of a larger RFP document.
+2. Your goal is to EXTRACT and SUMMARIZE all key information from this section.
+3. Maintain high detail - do not generalize if specific numbers, dates, or requirements are mentioned.
+4. Focus on finding information related to:
+   - Project scope and objectives
+   - Technical requirements
+   - Submission instructions and deadlines
+   - Evaluation criteria
+   - Terms, conditions, and legal clauses
+   - Budget/pricing details
+5. If a section contains only general boilerplate, summarize it briefly.
+6. If a section contains critical requirements, transcribe them almost verbatim.
+7. Output the summary in clear, structured MARKDOWN.
+
+SECTION TEXT:
+\n{{document_text}}\n
+
+DETAILED SECTION SUMMARY (Markdown):
+`;
+
+export const rfpReducePrompt = `INSTRUCTIONS:
+1. You are provided with a series of summaries from a large RFP document.
+2. Your task is to SYNTHESIZE these summaries into a SINGLE, COMPREHENSIVE HTML SUMMARY.
+3. The final output must be a well-formed HTML document.
+4. Structure the HTML exactly as requested below.
+5. RESOLVE any conflicting information (e.g., if one section says "Draft" and another "Final", use context to decide, or note the discrepancy).
+6. MERGE related sections (e.g., if multiple summaries mention "Scope", combine them into one detailed "Scope of Work" section).
+
+SUMMARIES:
+\n{{document_text}}\n
+
+RETURN DETAILED HTML SUMMARY:
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RFP Summary</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #2563eb; border-bottom: 2px solid #2563eb; padding-bottom: 10px; }
+        h2 { color: #1e40af; margin-top: 30px; }
+        h3 { color: #1e3a8a; margin-top: 20px; }
+        ul, ol { margin: 10px 0; padding-left: 20px; }
+        li { margin: 5px 0; }
+        p { line-height: 1.6; margin: 10px 0; }
+        .section { margin-bottom: 30px; }
+        .subsection { margin-bottom: 20px; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>[RFP Title and Number]</h1>
+    
+    <div class="section">
+        <h2>Document Information</h2>
+        <p><strong>Issue Date:</strong> [Issue Date]</p>
+        <p><strong>Response Due Date:</strong> [Response Due Date]</p>
+        <p><strong>Document Language:</strong> [Detected Language]</p>
+    </div>
+    
+    <div class="section">
+        <h2>Project Overview</h2>
+        <p>[Complete project overview content with all details]</p>
+    </div>
+    
+    <div class="section">
+        <h2>Scope of Work</h2>
+        <div class="subsection">
+            <h3>Detailed Requirements</h3>
+            <ul>
+                <li>[Requirement 1 with full details]</li>
+                <li>[Requirement 2 with full details]</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="section">
+        <h2>Submission Requirements</h2>
+        <p>[Complete submission requirements with all instructions]</p>
+        <ul>
+            <li>[Submission item 1]</li>
+            <li>[Submission item 2]</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>Evaluation Criteria</h2>
+        <ul>
+            <li><strong>[Criterion 1]:</strong> [Weight %] - [Detailed description]</li>
+            <li><strong>[Criterion 2]:</strong> [Weight %] - [Detailed description]</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>Timeline and Important Dates</h2>
+        <p>[Complete timeline information]</p>
+        <ul>
+            <li>[Date 1]: [Event description]</li>
+            <li>[Date 2]: [Event description]</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h2>Terms and Conditions</h2>
+        <p>[Complete terms and conditions with all details]</p>
+    </div>
+    
+    <div class="section">
+        <h2>Contact Information</h2>
+        <p>[Complete contact details]</p>
+    </div>
+    
+    <div class="section">
+        <h2>Additional Information</h2>
+        <p>[Any other relevant information from the document]</p>
+    </div>
+</body>
+</html>
+`;
+
 export const rfpSummarizePrompt = `INSTRUCTIONS:
 1. Create a comprehensive, detailed summary of the provided RFP document.
 2. DETECT the document language, but TRANSLATE all content to English in the response.

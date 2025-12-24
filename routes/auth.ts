@@ -122,7 +122,7 @@ async function registerHandler(req: Request): Promise<Response> {
     }
 
     // Create session (user can login even before verifying email, but with limited access)
-    const token = sessionService.createSession(userId);
+    const token = await sessionService.createSession(userId);
 
     const response = {
       token,
@@ -182,7 +182,7 @@ async function loginHandler(req: Request): Promise<Response> {
     await userService.updateUserLastLogin(user.userId);
 
     // Create session
-    const token = sessionService.createSession(user.userId);
+    const token = await sessionService.createSession(user.userId);
 
     const response = {
       token,
@@ -220,7 +220,7 @@ async function logoutHandler(req: Request): Promise<Response> {
 
     const token = authHeader.substring(7);
     // Invalidate session
-    sessionService.invalidateSession(token);
+    await sessionService.invalidateSession(token);
 
     return createSuccessResponse({ message: "Logged out successfully" });
   } catch (error) {
@@ -238,7 +238,7 @@ async function profileHandler(req: Request): Promise<Response> {
     }
 
     const token = authHeader.substring(7);
-    const userId = sessionService.getUserIdFromToken(token);
+    const userId = await sessionService.getUserIdFromToken(token);
     if (!userId) {
       return createErrorResponse("Invalid session", 401);
     }

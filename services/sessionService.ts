@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+import Session from '../models/Session';
+import DatabaseService from './database';
+
 class SessionService {
   private static instance: SessionService;
   private sessions: Map<string, string> = new Map(); // token -> userId
@@ -12,25 +16,49 @@ class SessionService {
   }
 
   generateSessionToken(): string {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    return randomBytes(32).toString('hex');
   }
 
-  createSession(userId: string): string {
+  async createSession(userId: string): Promise<string> {
     const token = this.generateSessionToken();
-    this.sessions.set(token, userId);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    if (DatabaseService.isConnectedToDatabase()) {
+      try {
+        await Session.create({ token, userId, expiresAt });
+      } catch (error) {
+        console.error("Failed to create session in DB, falling back to memory", error);
+        this.sessions.set(token, userId);
+      }
+    } else {
+      this.sessions.set(token, userId);
+    }
     return token;
   }
 
-  getUserIdFromToken(token: string): string | null {
+  async getUserIdFromToken(token: string): Promise<string | null> {
+    if (DatabaseService.isConnectedToDatabase()) {
+      try {
+        const session = await Session.findOne({ token });
+        if (session) return session.userId;
+      } catch (error) {
+        console.error("Failed to fetch session from DB", error);
+      }
+    }
+    // Check memory as fallback (e.g. created before DB connected or during DB outage fallback)
     return this.sessions.get(token) || null;
   }
 
-  invalidateSession(token: string): void {
+  async invalidateSession(token: string): Promise<void> {
+    if (DatabaseService.isConnectedToDatabase()) {
+      try {
+        await Session.deleteOne({ token });
+      } catch (error) {
+        console.error("Failed to delete session from DB", error);
+      }
+    }
     this.sessions.delete(token);
   }
-
-  // In a production environment, you would persist sessions to the database
-  // For now, we're using an in-memory store which will be lost on server restart
 }
 
 export default SessionService.getInstance();

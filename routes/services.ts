@@ -9,8 +9,9 @@ export async function servicesHandler(req: Request): Promise<Response> {
     // Expected path: /services or /services/{serviceId}
     const serviceId = pathSegments[1]; // e.g., "custom-field-extractor"
 
-    // Apply authentication to all service routes
-    if (!validateApiKey(req)) {
+    // Apply authentication to all service routes EXCEPT GET (Public read-only access)
+    // We want public users to see available services
+    if (req.method !== "GET" && !(await validateApiKey(req))) {
       return createErrorResponse("Unauthorized", 401);
     }
 

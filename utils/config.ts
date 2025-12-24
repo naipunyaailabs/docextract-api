@@ -14,6 +14,9 @@ export const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:
 export const PORT = parseInt(process.env.PORT || '5000', 10);
 export const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// Security
+export const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001').split(',');
+
 /**
  * Validates required configuration values
  * @throws Error if required configuration is missing

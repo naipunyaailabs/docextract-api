@@ -15,7 +15,7 @@ export async function processDocumentHandler(req: Request): Promise<Response> {
     const serviceId = pathSegments[1]; // e.g., "field-extractor", "document-summarizer", etc.
 
     // Apply authentication to all service routes
-    if (!validateApiKey(req)) {
+    if (!(await validateApiKey(req))) {
       return createErrorResponse("Unauthorized", 401);
     }
 

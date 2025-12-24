@@ -1,6 +1,7 @@
 import { extractDoc } from "../services/fieldExtractor";
 import { runRfpAgent } from "../services/rfpAgent";
 import { createErrorResponse, createSuccessResponse } from "../utils/errorHandler";
+import { validateApiKey } from "../utils/auth";
 import {
   AGUIEventType,
   createAGUIEvent,
@@ -20,6 +21,11 @@ import {
 
 // RFP HTML Summary API handler
 export async function summarizeRfpHandler(req: Request): Promise<Response> {
+  // Apply authentication
+  if (!(await validateApiKey(req))) {
+    return createErrorResponse("Unauthorized", 401);
+  }
+
   // Check if this is an AG-UI request (has Accept: text/event-stream header)
   const isAGUIRequest = req.headers.get("Accept") === "text/event-stream";
   

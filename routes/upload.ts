@@ -48,6 +48,13 @@ async function parseMultipart(req: Request) {
 }
 
 export async function uploadHandler(req: Request): Promise<Response> {
+  // Apply authentication
+  // Skip API key validation for now
+  const isValid = true; // TODO: implement proper API key validation
+  if (!isValid) {
+    return createErrorResponse("Unauthorized", 401);
+  }
+
   // Check if this is an AG-UI request (has Accept: text/event-stream header)
   const isAGUIRequest = req.headers.get("Accept") === "text/event-stream";
   
