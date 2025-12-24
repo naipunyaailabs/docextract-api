@@ -3,9 +3,23 @@ import Service from '../models/Service';
 
 // Connect to MongoDB
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/docapture';
-mongoose.connect(mongoUri);
 
-const documentServices = [
+async function connectDB() {
+  try {
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000
+    });
+    console.log('Connected to MongoDB');
+  } catch (err) {
+    console.error('MongoDB connection error:', err);
+    process.exit(1);
+  }
+}
+
+async function addDocumentServices() {
+  await connectDB();
+  
+  const documentServices = [
   {
     id: "field-extractor",
     slug: "field-extractor",
@@ -78,8 +92,7 @@ const documentServices = [
   }
 ];
 
-async function addDocumentServices() {
-  try {
+try {
     console.log('Adding document processing services...');
     
     for (const serviceData of documentServices) {
@@ -98,7 +111,7 @@ async function addDocumentServices() {
     
     // List all services
     const allServices = await Service.find();
-    console.log(`\nTotal services in database: ${allServices.length}`);
+    console.log(`Total services in database: ${allServices.length}`);
     
     process.exit(0);
   } catch (error) {
@@ -107,4 +120,8 @@ async function addDocumentServices() {
   }
 }
 
-addDocumentServices();
+async function run() {
+  await addDocumentServices();
+}
+
+run();
