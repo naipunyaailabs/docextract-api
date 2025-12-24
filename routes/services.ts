@@ -9,21 +9,27 @@ export async function servicesHandler(req: Request): Promise<Response> {
     // Expected path: /services or /services/{serviceId}
     const serviceId = pathSegments[1]; // e.g., "custom-field-extractor"
 
-    // Apply authentication to all service routes EXCEPT GET (Public read-only access)
-    // We want public users to see available services
-    if (req.method !== "GET" && !(await validateApiKey(req))) {
+    console.log(`[ServicesHandler] Request received for path: ${url.pathname}`);
+    console.log(`[ServicesHandler] Method: ${req.method}`);
+
+    // Allow GET requests without authentication
+    if (req.method === "GET") {
+      if (!serviceId) {
+        // GET /services - List all services
+        return await listServicesHandler(req);
+      } else {
+        // GET /services/{serviceId} - Get specific service
+        return await getServiceHandler(req, serviceId);
+      }
+    }
+
+    // Apply authentication to non-GET routes
+    if (!(await validateApiKey(req))) {
+      console.log("[ServicesHandler] Authentication failed, returning 401");
       return createErrorResponse("Unauthorized", 401);
     }
 
-    if (req.method === "GET" && !serviceId) {
-      // GET /services - List all services
-      return await listServicesHandler(req);
-    } else if (req.method === "GET" && serviceId) {
-      // GET /services/{serviceId} - Get specific service
-      return await getServiceHandler(req, serviceId);
-    } else {
-      return createErrorResponse("Method not allowed", 405);
-    }
+    return createErrorResponse("Method not allowed", 405);
   } catch (error) {
     console.error("[Services Handler Error]:", error);
     return createErrorResponse("Internal server error", 500);
