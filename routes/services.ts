@@ -13,7 +13,7 @@ export async function servicesHandler(req: Request): Promise<Response> {
     console.log(`[ServicesHandler] Method: ${req.method}`);
 
     // Allow GET requests without authentication
-    if (req.method === "GET") {
+    if (req.method.toUpperCase() === "GET") {
       if (!serviceId) {
         // GET /services - List all services
         return await listServicesHandler(req);
