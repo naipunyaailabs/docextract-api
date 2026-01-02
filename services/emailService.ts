@@ -13,15 +13,25 @@ class EmailService {
   private transporter: nodemailer.Transporter;
 
   private constructor() {
+    const host = process.env.SMTP_HOST || 'localhost';
+    const port = parseInt(process.env.SMTP_PORT || '587', 10);
+    const user = process.env.SMTP_USER;
+    
+    console.log(`[EmailService] Initializing transporter with: Host=${host}, Port=${port}, User=${user ? user.substring(0, 3) + '***' : 'undefined'}`);
+
     // Create transporter with SMTP configuration from environment variables
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'localhost',
-      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      host,
+      port,
       secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      tls: {
+        // Do not fail on invalid certs
+        rejectUnauthorized: false
+      }
     });
   }
 

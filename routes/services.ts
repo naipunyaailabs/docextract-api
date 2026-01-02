@@ -3,17 +3,19 @@ import serviceService from "../services/serviceService";
 import { validateApiKey } from "../utils/auth";
 
 export async function servicesHandler(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const pathParts = url.pathname.split("/").filter(p => p);
+  // /services or /services/:id
+  const serviceId = pathParts.length > 1 ? pathParts[1] : null;
+
+  console.log(`[ServicesHandler] Request received for path: ${url.pathname}`);
+  console.log(`[ServicesHandler] Method: ${req.method}`);
+  console.log(`[ServicesHandler] ServiceId: ${serviceId}`);
+
   try {
-    const url = new URL(req.url);
-    const pathSegments = url.pathname.split("/").filter(segment => segment);
-    // Expected path: /services or /services/{serviceId}
-    const serviceId = pathSegments[1]; // e.g., "custom-field-extractor"
-
-    console.log(`[ServicesHandler] Request received for path: ${url.pathname}`);
-    console.log(`[ServicesHandler] Method: ${req.method}`);
-
     // Allow GET requests without authentication
     if (req.method.toUpperCase() === "GET") {
+      console.log("[ServicesHandler] Processing public GET request");
       if (!serviceId) {
         // GET /services - List all services
         return await listServicesHandler(req);
@@ -23,6 +25,7 @@ export async function servicesHandler(req: Request): Promise<Response> {
       }
     }
 
+    console.log("[ServicesHandler] Non-GET request, checking authentication...");
     // Apply authentication to non-GET routes
     if (!(await validateApiKey(req))) {
       console.log("[ServicesHandler] Authentication failed, returning 401");
