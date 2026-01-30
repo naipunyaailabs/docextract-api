@@ -65,7 +65,7 @@ class EmailService {
   }
 
   async sendVerificationEmail(email: string, verificationToken: string): Promise<boolean> {
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/verify?token=${verificationToken}`;
+    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/verify/?token=${verificationToken}`;
 
     const text = `Please verify your email by clicking the following link: ${verificationUrl}`;
 
@@ -101,7 +101,7 @@ class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, userId: string, resetToken: string): Promise<boolean> {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?userId=${userId}&secret=${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password/?userId=${userId}&secret=${resetToken}`;
 
     const text = `Please reset your password by clicking the following link: ${resetUrl}`;
 
