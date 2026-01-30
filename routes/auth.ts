@@ -3,7 +3,26 @@ import userService from "../services/userService";
 import sessionService from "../services/sessionService";
 import DatabaseService from "../services/database";
 import EmailService from "../services/emailService";
+// @ts-ignore
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+
+// Validations
+const registerSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  designation: z.string().optional(),
+  companyName: z.string().optional(),
+  useCase: z.string().optional(),
+  agreedToTerms: z.boolean().refine(val => val === true, "You must agree to terms"),
+  subscribedToNewsletter: z.boolean().optional()
+});
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string()
+});
 
 // Connect to database
 DatabaseService.connect().catch(err => {
@@ -19,12 +38,6 @@ async function hashPassword(password: string): Promise<string> {
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash);
-}
-
-// Helper function to validate email format
-function validateEmail(email: string): boolean {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
 }
 
 // Helper function to generate verification token
@@ -61,17 +74,15 @@ export async function authHandler(req: Request): Promise<Response> {
 async function registerHandler(req: Request): Promise<Response> {
   try {
     const body: any = await req.json();
-    const { name, email, password, designation, companyName, useCase, agreedToTerms, subscribedToNewsletter } = body;
 
-    // Validate required fields
-    if (!name || !email || !password) {
-      return createErrorResponse("Name, email, and password are required", 400);
+    // Validate Input with Zod
+    const validation = registerSchema.safeParse(body);
+    if (!validation.success) {
+      // @ts-ignore
+      return createErrorResponse(validation.error.errors[0].message, 400);
     }
 
-    // Validate email format
-    if (!validateEmail(email)) {
-      return createErrorResponse("Invalid email format", 400);
-    }
+    const { name, email, password, designation, companyName, useCase, subscribedToNewsletter } = validation.data;
 
     // Check if user already exists
     const existingUser = await userService.findUserByEmail(email);
@@ -79,19 +90,14 @@ async function registerHandler(req: Request): Promise<Response> {
       return createErrorResponse("User with this email already exists", 409);
     }
 
-    // Validate terms agreement
-    if (!agreedToTerms) {
-      return createErrorResponse("You must agree to the terms and conditions", 400);
-    }
-
     // Create user
     const userId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
     const hashedPassword = await hashPassword(password);
-    
+
     // Generate email verification token
     const verificationToken = generateVerificationToken();
     const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-    
+
     const user = await userService.createUser({
       userId,
       name,
@@ -154,12 +160,13 @@ async function registerHandler(req: Request): Promise<Response> {
 async function loginHandler(req: Request): Promise<Response> {
   try {
     const body: any = await req.json();
-    const { email, password } = body;
 
-    // Validate required fields
-    if (!email || !password) {
-      return createErrorResponse("Email and password are required", 400);
+    const validation = loginSchema.safeParse(body);
+    if (!validation.success) {
+      return createErrorResponse("Invalid email or password", 400);
     }
+
+    const { email, password } = validation.data;
 
     // Find user
     const user = await userService.findUserByEmail(email);
@@ -302,8 +309,8 @@ async function verifyEmailHandler(req: Request): Promise<Response> {
       return createErrorResponse("Failed to verify email", 500);
     }
 
-    return createSuccessResponse({ 
-      message: "Email verified successfully. You can now login to your account." 
+    return createSuccessResponse({
+      message: "Email verified successfully. You can now login to your account."
     });
   } catch (error) {
     console.error("[Verify Email Handler Error]:", error);
@@ -324,8 +331,8 @@ async function resendVerificationHandler(req: Request): Promise<Response> {
     const user = await userService.findUserByEmail(email);
     if (!user) {
       // Don't reveal if user exists or not for security
-      return createSuccessResponse({ 
-        message: "If an account exists with this email, a verification email has been sent." 
+      return createSuccessResponse({
+        message: "If an account exists with this email, a verification email has been sent."
       });
     }
 
@@ -354,8 +361,8 @@ async function resendVerificationHandler(req: Request): Promise<Response> {
       console.warn("Failed to send verification email to:", email);
     }
 
-    return createSuccessResponse({ 
-      message: "Verification email sent successfully." 
+    return createSuccessResponse({
+      message: "Verification email sent successfully."
     });
   } catch (error) {
     console.error("[Resend Verification Handler Error]:", error);

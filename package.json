@@ -16,6 +16,7 @@
     "update:document-services-only": "bun scripts/updateDocumentServicesOnly.ts"
   },
   "devDependencies": {
+    "@types/bcryptjs": "2.4.6",
     "@types/bun": "latest",
     "@types/jest": "^30.0.0",
     "@types/nodemailer": "^7.0.2",
@@ -53,7 +54,8 @@
     "pdfmake": "^0.2.20",
     "sharp": "^0.34.2",
     "unpdf": "^1.0.6",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
   },
   "trustedDependencies": [
     "sharp"

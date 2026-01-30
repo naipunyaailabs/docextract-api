@@ -33,7 +33,7 @@ const projectHtml = readFileSync(join(__dirname, 'project.html'), 'utf-8');
 
 const addCors = (req: Request, response: Response) => {
   const origin = req.headers.get("Origin");
-  
+
   if (origin && ALLOWED_ORIGINS.includes(origin)) {
     response.headers.set("Access-Control-Allow-Origin", origin);
     response.headers.set("Vary", "Origin");
@@ -53,6 +53,7 @@ const addCors = (req: Request, response: Response) => {
 const server = serve({
   fetch: async (req) => {
     const url = new URL(req.url);
+    console.log(`[Request] ${req.method} ${url.pathname}`);
 
     // Handle CORS preflight requests for all routes
     if (req.method === "OPTIONS") {
@@ -92,6 +93,13 @@ const server = serve({
       return addCors(req, response);
     }
 
+    // Handle subscription routes
+    if (url.pathname.startsWith("/subscription/")) {
+      const { subscriptionHandler } = await import("./routes/subscription");
+      const response = await subscriptionHandler(req);
+      return addCors(req, response);
+    }
+
     let response: Response;
     try {
       if (req.method === "POST" && url.pathname === "/upload") {
@@ -109,8 +117,8 @@ const server = serve({
       }
     } catch (error) {
       console.error("[Server Error]:", error);
-      response = new Response(JSON.stringify({ error: "Internal server error" }), { 
-        status: 500, 
+      response = new Response(JSON.stringify({ error: "Internal server error" }), {
+        status: 500,
         headers: { "Content-Type": "application/json" }
       });
     }

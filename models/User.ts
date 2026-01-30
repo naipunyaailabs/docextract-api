@@ -17,6 +17,8 @@ export interface IUser extends Document {
   useCase: string | null;
   subscribedToNewsletter: boolean;
   agreedToTermsAt: Date;
+  documentsUsed: number;
+  planId: string;
 }
 
 const UserSchema: Schema = new Schema({
@@ -35,7 +37,9 @@ const UserSchema: Schema = new Schema({
   companyName: { type: String, default: null },
   useCase: { type: String, default: null },
   subscribedToNewsletter: { type: Boolean, default: false },
-  agreedToTermsAt: { type: Date, default: Date.now }
+  agreedToTermsAt: { type: Date, default: Date.now },
+  documentsUsed: { type: Number, default: 0 },
+  planId: { type: String, default: 'trial' }
 });
 
 export default mongoose.model<IUser>('User', UserSchema);

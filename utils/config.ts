@@ -13,6 +13,7 @@ export const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:
 // Application Settings
 export const PORT = parseInt(process.env.PORT || '5000', 10);
 export const NODE_ENV = process.env.NODE_ENV || 'development';
+export const MAX_UPLOAD_SIZE = parseInt(process.env.MAX_UPLOAD_SIZE || '52428800', 10); // 50MB default
 
 // Security
 export const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001').split(',');
@@ -27,7 +28,7 @@ export function validateConfig(): void {
   ];
 
   const missingKeys = requiredKeys.filter(key => !key.value);
-  
+
   if (missingKeys.length > 0) {
     const missingNames = missingKeys.map(key => key.name).join(', ');
     throw new Error(`Missing required environment variables: ${missingNames}`);
