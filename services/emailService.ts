@@ -16,7 +16,7 @@ class EmailService {
     const host = process.env.SMTP_HOST || 'localhost';
     const port = parseInt(process.env.SMTP_PORT || '587', 10);
     const user = process.env.SMTP_USER;
-    
+
     console.log(`[EmailService] Initializing transporter with: Host=${host}, Port=${port}, User=${user ? user.substring(0, 3) + '***' : 'undefined'}`);
 
     // Create transporter with SMTP configuration from environment variables
@@ -46,7 +46,7 @@ class EmailService {
     try {
       // Verify transporter configuration
       await this.transporter.verify();
-      
+
       // Send email
       const info = await this.transporter.sendMail({
         from: process.env.SMTP_FROM || `"Docapture" <admin@docapture.com>`,
@@ -66,9 +66,9 @@ class EmailService {
 
   async sendVerificationEmail(email: string, verificationToken: string): Promise<boolean> {
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/verify?token=${verificationToken}`;
-    
+
     const text = `Please verify your email by clicking the following link: ${verificationUrl}`;
-    
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">Verify your email address</h2>
@@ -95,6 +95,43 @@ class EmailService {
     return await this.sendEmail({
       to: email,
       subject: 'Verify your Docapture account',
+      text,
+      html,
+    });
+  }
+
+  async sendPasswordResetEmail(email: string, userId: string, resetToken: string): Promise<boolean> {
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?userId=${userId}&secret=${resetToken}`;
+
+    const text = `Please reset your password by clicking the following link: ${resetUrl}`;
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #333;">Reset Your Password</h2>
+        <p>Hello,</p>
+        <p>You requested a password reset for your Docapture account. Please click the button below to set a new password:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}" 
+             style="background-color: #fbbf24; color: white; padding: 12px 24px; 
+                    text-decoration: none; border-radius: 4px; display: inline-block;
+                    font-weight: bold;">
+            Reset Password
+          </a>
+        </div>
+        <p>Or copy and paste this link in your browser:</p>
+        <p style="word-break: break-all; color: #666;">${resetUrl}</p>
+        <p>If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
+        <p>This link will expire in 1 hour.</p>
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+        <p style="color: #999; font-size: 12px;">
+          This email was sent to ${email}. If you have any questions, please contact our support team.
+        </p>
+      </div>
+    `;
+
+    return await this.sendEmail({
+      to: email,
+      subject: 'Reset your Docapture password',
       text,
       html,
     });

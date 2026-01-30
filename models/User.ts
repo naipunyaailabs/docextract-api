@@ -11,6 +11,8 @@ export interface IUser extends Document {
   emailVerified: boolean;
   emailVerificationToken?: string;
   emailVerificationTokenExpiry?: Date;
+  resetPasswordToken?: string;
+  resetPasswordTokenExpiry?: Date;
   createdAt: Date;
   designation: string | null;
   companyName: string | null;
@@ -32,6 +34,8 @@ const UserSchema: Schema = new Schema({
   emailVerified: { type: Boolean, default: false },
   emailVerificationToken: { type: String },
   emailVerificationTokenExpiry: { type: Date },
+  resetPasswordToken: { type: String },
+  resetPasswordTokenExpiry: { type: Date },
   createdAt: { type: Date, default: Date.now },
   designation: { type: String, default: null },
   companyName: { type: String, default: null },

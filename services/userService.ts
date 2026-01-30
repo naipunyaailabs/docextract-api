@@ -6,7 +6,7 @@ class UserService {
   private static instance: UserService;
   private inMemoryUsers: Map<string, any> = new Map();
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): UserService {
     if (!UserService.instance) {
@@ -92,16 +92,16 @@ class UserService {
     try {
       // If database is connected, use it
       if (DatabaseService.isConnectedToDatabase()) {
-        return await User.findOne({ 
+        return await User.findOne({
           emailVerificationToken: token,
           emailVerificationTokenExpiry: { $gt: new Date() }
         }).exec();
       } else {
         // Fallback to in-memory storage
         for (const user of this.inMemoryUsers.values()) {
-          if (user.emailVerificationToken === token && 
-              user.emailVerificationTokenExpiry && 
-              user.emailVerificationTokenExpiry > new Date()) {
+          if (user.emailVerificationToken === token &&
+            user.emailVerificationTokenExpiry &&
+            user.emailVerificationTokenExpiry > new Date()) {
             return user as IUser;
           }
         }
@@ -109,6 +109,32 @@ class UserService {
       }
     } catch (error) {
       console.error('Error finding user by verification token:', error);
+      return null;
+    }
+  }
+
+  async findUserByResetToken(userId: string, token: string): Promise<IUser | null> {
+    try {
+      // If database is connected, use it
+      if (DatabaseService.isConnectedToDatabase()) {
+        return await User.findOne({
+          userId,
+          resetPasswordToken: token,
+          resetPasswordTokenExpiry: { $gt: new Date() }
+        }).exec();
+      } else {
+        // Fallback to in-memory storage
+        const user = this.inMemoryUsers.get(userId);
+        if (user &&
+          user.resetPasswordToken === token &&
+          user.resetPasswordTokenExpiry &&
+          user.resetPasswordTokenExpiry > new Date()) {
+          return user as IUser;
+        }
+        return null;
+      }
+    } catch (error) {
+      console.error('Error finding user by reset token:', error);
       return null;
     }
   }

@@ -24,6 +24,16 @@ const loginSchema = z.object({
   password: z.string()
 });
 
+const requestResetSchema = z.object({
+  email: z.string().email()
+});
+
+const resetPasswordSchema = z.object({
+  userId: z.string(),
+  secret: z.string(),
+  password: z.string().min(8, "Password must be at least 8 characters")
+});
+
 // Connect to database
 DatabaseService.connect().catch(err => {
   console.error("Failed to connect to database:", err);
@@ -62,6 +72,10 @@ export async function authHandler(req: Request): Promise<Response> {
       return await verifyEmailHandler(req);
     } else if (req.method === "POST" && path === "resend-verification") {
       return await resendVerificationHandler(req);
+    } else if (req.method === "POST" && path === "request-password-reset") {
+      return await requestPasswordResetHandler(req);
+    } else if (req.method === "POST" && path === "reset-password") {
+      return await resetPasswordHandler(req);
     } else {
       return createErrorResponse("Not Found", 404);
     }
@@ -367,5 +381,89 @@ async function resendVerificationHandler(req: Request): Promise<Response> {
   } catch (error) {
     console.error("[Resend Verification Handler Error]:", error);
     return createErrorResponse("Failed to resend verification email", 500);
+  }
+}
+
+async function requestPasswordResetHandler(req: Request): Promise<Response> {
+  try {
+    const body: any = await req.json();
+    const validation = requestResetSchema.safeParse(body);
+    if (!validation.success) {
+      return createErrorResponse("Invalid email format", 400);
+    }
+
+    const { email } = validation.data;
+
+    // Find user
+    const user = await userService.findUserByEmail(email);
+    if (!user) {
+      // Don't reveal user existence for security
+      return createSuccessResponse({
+        message: "If an account exists with this email, a password reset link has been sent."
+      });
+    }
+
+    // Generate reset token
+    const resetToken = generateVerificationToken(); // We can reuse the same token generator
+    const resetTokenExpiry = new Date(Date.now() + 1 * 60 * 60 * 1000); // 1 hour
+
+    // Update user with reset token
+    await userService.updateUser(user.userId, {
+      resetPasswordToken: resetToken,
+      resetPasswordTokenExpiry: resetTokenExpiry
+    });
+
+    // Send reset email
+    const emailSent = await EmailService.sendPasswordResetEmail(email, user.userId, resetToken);
+    if (!emailSent) {
+      console.warn("Failed to send password reset email to:", email);
+    }
+
+    return createSuccessResponse({
+      message: "If an account exists with this email, a password reset link has been sent."
+    });
+  } catch (error) {
+    console.error("[Request Password Reset Handler Error]:", error);
+    return createErrorResponse("Failed to request password reset", 500);
+  }
+}
+
+async function resetPasswordHandler(req: Request): Promise<Response> {
+  try {
+    const body: any = await req.json();
+    const validation = resetPasswordSchema.safeParse(body);
+    if (!validation.success) {
+      // @ts-ignore
+      return createErrorResponse(validation.error.errors[0].message, 400);
+    }
+
+    const { userId, secret, password } = validation.data;
+
+    // Find user by reset token
+    const user = await userService.findUserByResetToken(userId, secret);
+    if (!user) {
+      return createErrorResponse("Invalid or expired reset token", 400);
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(password);
+
+    // Update user password and clear reset token
+    const updatedUser = await userService.updateUser(user.userId, {
+      password: hashedPassword,
+      resetPasswordToken: undefined,
+      resetPasswordTokenExpiry: undefined
+    });
+
+    if (!updatedUser) {
+      return createErrorResponse("Failed to reset password", 500);
+    }
+
+    return createSuccessResponse({
+      message: "Password has been reset successfully. You can now login with your new password."
+    });
+  } catch (error) {
+    console.error("[Reset Password Handler Error]:", error);
+    return createErrorResponse("Failed to reset password", 500);
   }
 }
